@@ -1,0 +1,10 @@
+{
+  "build": {
+    "env": {
+      "AT_API_KEY": "atsk_fc8790c6876ea06818db97d7a04e3fe2499fccf2bd7fb6958ee9d98963e94eacf1bf1c26",
+      "AT_USERNAME": "sandbox",
+      "AT_SENDER_ID": "AFRICASTKNG",
+      "NEXT_PUBLIC_AT_SENDER_ID": "AFRICASTKNG"
+    }
+  }
+}
