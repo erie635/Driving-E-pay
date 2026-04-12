@@ -1,17 +1,12 @@
 import { NextResponse } from 'next/server';
-import admin from '@/lib/firebase/admin'; // your admin config
 
-export async function POST(req: Request) {
-  try {
-    const { uid } = await req.json();
+export async function GET() {
+  // Your Firebase logic here
+  return NextResponse.json({ branches: [] });
+}
 
-    await admin.auth().setCustomUserClaims(uid, {
-      admin: true,
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed' }, { status: 500 });
-  }
+export async function POST(request: Request) {
+  const body = await request.json();
+  // Your Firebase logic here
+  return NextResponse.json({ success: true });
 }
