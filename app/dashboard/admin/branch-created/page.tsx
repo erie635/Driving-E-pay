@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase/client";
@@ -178,16 +178,15 @@ export default function BranchInvitationManager({
   // --- Render password prompt if not authenticated ---
   if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md w-96">
-          {/* Logo added here */}
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+        <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-sm sm:w-96">
           <img
             src="/logopds.jpg"
             alt="Logo"
-            className="mx-auto mb-4 w-24 h-24 object-contain"
+            className="mx-auto mb-4 w-20 h-20 sm:w-24 sm:h-24 object-contain"
           />
-          <h2 className="text-2xl text-black font-bold mb-4 text-center">
-            Access Branch Level Links 
+          <h2 className="text-xl sm:text-2xl text-black font-bold mb-4 text-center">
+            Access Branch Level Links
           </h2>
           <form onSubmit={handlePasswordSubmit}>
             <input
@@ -195,15 +194,15 @@ export default function BranchInvitationManager({
               placeholder="Enter password"
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
-              className="w-full text-black p-2 border rounded mb-4"
+              className="w-full text-black p-2 border rounded mb-4 text-sm sm:text-base"
               autoFocus
             />
             {passwordError && (
-              <p className="text-red-500 text-sm mb-4">{passwordError}</p>
+              <p className="text-red-500 text-xs sm:text-sm mb-4">{passwordError}</p>
             )}
             <button
               type="submit"
-              className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
+              className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 text-sm sm:text-base"
             >
               Unlock
             </button>
@@ -213,178 +212,180 @@ export default function BranchInvitationManager({
     );
   }
 
-  // --- Authenticated view: original content with reduced font size ---
+  // --- Authenticated view: original content with reduced font size and responsiveness ---
   if (!branches.length && !error) {
     return (
-      <div className="p-6 text-white" style={{ fontSize: "0.8rem" }}>
+      <div className="p-4 sm:p-6 text-white text-sm">
         Loading branches...
       </div>
     );
   }
 
   return (
-    <div style={{ fontSize: "0.8rem" }}>
-      <div className="p-6 max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">
-          Manage Branch Invitations
-        </h1>
-        {error && <p className="text-red-400 mb-4">{error}</p>}
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">
+        Manage Branch Invitations
+      </h1>
+      {error && <p className="text-red-400 mb-3 text-sm">{error}</p>}
 
-        <div className="space-y-6">
-          {branches.map((branch) => (
-            <div key={branch.id} className="bg-white/10 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold text-white mb-2">
-                {branch.name}
-              </h2>
+      <div className="space-y-4 sm:space-y-6">
+        {branches.map((branch) => (
+          <div key={branch.id} className="bg-white/10 p-3 sm:p-4 rounded-lg">
+            <h2 className="text-lg sm:text-xl font-semibold text-white mb-1 sm:mb-2">
+              {branch.name}
+            </h2>
 
-              <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex-1">
-                  <label className="block text-white/70 text-sm mb-1">
-                    Password
-                  </label>
-                  <input
-                    type="text"
-                    value={passwords[branch.id] || ""}
-                    onChange={(e) =>
-                      handlePasswordChange(branch.id, e.target.value)
-                    }
-                    className="w-full px-3 py-2 bg-white/20 rounded text-white border border-white/20"
-                    placeholder="Set branch password"
-                  />
-                </div>
-                <button
-                  onClick={() => handleGenerate(branch.id)}
-                  disabled={loading}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:opacity-50"
-                >
-                  Generate Invitation
-                </button>
-                <button
-                  onClick={() => openDashboard(branch.id)}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white"
-                >
-                  Open Dashboard
-                </button>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
+              <div className="flex-1 min-w-[140px]">
+                <label className="block text-white/70 text-xs sm:text-sm mb-1">
+                  Password
+                </label>
+                <input
+                  type="text"
+                  value={passwords[branch.id] || ""}
+                  onChange={(e) =>
+                    handlePasswordChange(branch.id, e.target.value)
+                  }
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 rounded text-white border border-white/20 text-sm"
+                  placeholder="Set branch password"
+                />
               </div>
-
-              {invitationLinks[branch.id] && (
-                <div className="mt-3">
-                  <p className="text-white/70 text-sm">Invitation link:</p>
-                  <code className="block bg-black/30 p-2 rounded break-all text-sm text-white">
-                    {invitationLinks[branch.id]}
-                  </code>
-                  <p className="text-yellow-300 text-sm mt-1">
-                    Password: {passwords[branch.id]}
-                  </p>
-                </div>
-              )}
+              <button
+                onClick={() => handleGenerate(branch.id)}
+                disabled={loading}
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:opacity-50 text-sm sm:text-base"
+              >
+                Generate Invitation
+              </button>
+              <button
+                onClick={() => openDashboard(branch.id)}
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm sm:text-base"
+              >
+                Open Dashboard
+              </button>
             </div>
-          ))}
-        </div>
 
-        {/* Popup for main admin (updated with dynamic fees) */}
-        {openBranchId && (
+            {invitationLinks[branch.id] && (
+              <div className="mt-3">
+                <p className="text-white/70 text-xs sm:text-sm">Invitation link:</p>
+                <code className="block bg-black/30 p-2 rounded break-all text-xs sm:text-sm text-white">
+                  {invitationLinks[branch.id]}
+                </code>
+                <p className="text-yellow-300 text-xs sm:text-sm mt-1">
+                  Password: {passwords[branch.id]}
+                </p>
+                {/* ✅ SECURITY REMINDER – no logic/CSS changes */}
+                <p className="text-red-300 text-xs mt-2">
+                  ⚠️ The user must enter the above password when accessing this link to view the branch dashboard.
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Popup for main admin (inline styles untouched, as requested) */}
+      {openBranchId && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0,0,0,0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 999,
+          }}
+        >
           <div
             style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              backgroundColor: "rgba(0,0,0,0.7)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              zIndex: 999,
+              backgroundColor: "#ff2d2d",
+              padding: "20px",
+              borderRadius: "10px",
+              width: "80%",
+              maxHeight: "80%",
+              overflowY: "auto",
+              color: "white",
             }}
           >
-            <div
+            <button
+              onClick={() => setOpenBranchId(null)}
               style={{
-                backgroundColor: "#ff2d2d",
-                padding: "20px",
-                borderRadius: "10px",
-                width: "80%",
-                maxHeight: "80%",
-                overflowY: "auto",
+                float: "right",
+                background: "black",
                 color: "white",
+                padding: "5px 10px",
+                border: "none",
+                cursor: "pointer",
               }}
             >
-              <button
-                onClick={() => setOpenBranchId(null)}
-                style={{
-                  float: "right",
-                  background: "black",
-                  color: "white",
-                  padding: "5px 10px",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-              <h2 style={{ marginBottom: "20px" }}>
-                ✅ Branch Dashboard: {branchName}
-              </h2>
-              {branchData.length === 0 ? (
-                <p>No students found</p>
-              ) : (
-                branchData.map((student) => {
-                  const paid = student.feePaid || 0;
-                  const balance = student.balance; // computed above
-                  const totalFee = student.totalFee || 0;
-                  const classesList = student.classes?.join(", ") || "None";
+              Close
+            </button>
+            <h2 style={{ marginBottom: "20px" }}>
+              ✅ Branch Dashboard: {branchName}
+            </h2>
+            {branchData.length === 0 ? (
+              <p>No students found</p>
+            ) : (
+              branchData.map((student) => {
+                const paid = student.feePaid || 0;
+                const balance = student.balance;
+                const totalFee = student.totalFee || 0;
+                const classesList = student.classes?.join(", ") || "None";
 
-                  return (
-                    <div
-                      key={student.id}
-                      style={{
-                        border: "1px solid white",
-                        padding: "10px",
-                        marginBottom: "10px",
-                        borderRadius: "5px",
-                      }}
-                    >
-                      <p>
-                        <strong>Name:</strong> {student.name}
-                      </p>
-                      <p>
-                        <strong>Account Number:</strong>{" "}
-                        {student.accountNumber || student.id}
-                      </p>
-                      <p>
-                        <strong>Classes Enrolled:</strong> {classesList}
-                      </p>
-                      <p>
-                        <strong>Total Fee:</strong> Ksh {totalFee}
-                      </p>
-                      <p>
-                        <strong>Paid:</strong> Ksh {paid}
-                      </p>
-                      <p>
-                        <strong>Balance:</strong> Ksh {balance}
-                      </p>
-                      <p>
-                        <strong>Phone:</strong> {student.phone || "N/A"}
-                      </p>
-                      <p>
-                        <strong>ID Number:</strong> {student.idNumber || "N/A"}
-                      </p>
-                      <p>
-                        <strong>Reg. Date:</strong>{" "}
-                        {student.createdAt
-                          ? new Date(
-                              student.createdAt.seconds * 1000,
-                            ).toLocaleDateString()
-                          : "Unknown"}
-                      </p>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                return (
+                  <div
+                    key={student.id}
+                    style={{
+                      border: "1px solid white",
+                      padding: "10px",
+                      marginBottom: "10px",
+                      borderRadius: "5px",
+                    }}
+                  >
+                    <p>
+                      <strong>Name:</strong> {student.name}
+                    </p>
+                    <p>
+                      <strong>Account Number:</strong>{" "}
+                      {student.accountNumber || student.id}
+                    </p>
+                    <p>
+                      <strong>Classes Enrolled:</strong> {classesList}
+                    </p>
+                    <p>
+                      <strong>Total Fee:</strong> Ksh {totalFee}
+                    </p>
+                    <p>
+                      <strong>Paid:</strong> Ksh {paid}
+                    </p>
+                    <p>
+                      <strong>Balance:</strong> Ksh {balance}
+                    </p>
+                    <p>
+                      <strong>Phone:</strong> {student.phone || "N/A"}
+                    </p>
+                    <p>
+                      <strong>ID Number:</strong> {student.idNumber || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Reg. Date:</strong>{" "}
+                      {student.createdAt
+                        ? new Date(
+                            student.createdAt.seconds * 1000,
+                          ).toLocaleDateString()
+                        : "Unknown"}
+                    </p>
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

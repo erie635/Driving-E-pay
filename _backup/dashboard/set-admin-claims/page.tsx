@@ -212,175 +212,175 @@ export default function BranchStudentPage() {
   };
 
   // --- Render password prompt if not authenticated ---
-// --- Render password prompt if not authenticated ---
-if (!isAuthenticated) {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96">
-        {/* Logo added here */}
-        <img
-          src="/logopds.jpg"
-          alt="Logo"
-          className="mx-auto mb-4 w-24 h-24 object-contain"
-        />
-        <h2 className="text-2xl text-black font-bold mb-4 text-center">Admin Access To Adjust School Fee</h2>
-        <form onSubmit={handlePasswordSubmit}>
-          <input
-            type="password"
-            placeholder="Enter password"
-            value={passwordInput}
-            onChange={(e) => setPasswordInput(e.target.value)}
-            className="w-full text-black p-2 border rounded mb-4"
-            autoFocus
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+        <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-sm sm:w-96">
+          <img
+            src="/logopds.jpg"
+            alt="Logo"
+            className="mx-auto mb-4 w-20 h-20 sm:w-24 sm:h-24 object-contain"
           />
-          {passwordError && <p className="text-red-500 text-sm mb-4">{passwordError}</p>}
-          <button
-            type="submit"
-            className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
-          >
-            Unlock
-          </button>
-        </form>
+          <h2 className="text-xl sm:text-2xl text-black font-bold mb-4 text-center">
+            Admin Access To Adjust School Fee
+          </h2>
+          <form onSubmit={handlePasswordSubmit}>
+            <input
+              type="password"
+              placeholder="Enter password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              className="w-full text-black p-2 border rounded mb-4 text-sm sm:text-base"
+              autoFocus
+            />
+            {passwordError && <p className="text-red-500 text-xs sm:text-sm mb-4">{passwordError}</p>}
+            <button
+              type="submit"
+              className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 text-sm sm:text-base"
+            >
+              Unlock
+            </button>
+          </form>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-  // --- Authenticated view: original content with reduced font size ---
+  // --- Authenticated view: fully responsive with reduced font sizes (Tailwind) ---
   return (
-    <div style={{ fontSize: '0.8rem' }}>
-      <div style={styles.container}>
-        <h1 style={styles.title}>Add Student</h1>
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto text-sm sm:text-base">
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Add Student</h1>
 
-        {/* Fee Management Section */}
-        <div style={styles.feeManagement}>
-          <h3 style={styles.subtitle}>Manage Class Fees (Market Prices)</h3>
-          <div style={styles.feeGrid}>
-            {classOptions.map(cls => (
-              <div key={cls} style={styles.feeItem}>
-                <span style={styles.feeLabel}>{cls}:</span>
-                {editingFee === cls ? (
-                  <div style={styles.feeEdit}>
-                    <input
-                      type="number"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      style={styles.feeInput}
-                      autoFocus
-                    />
-                    <button onClick={() => saveFee(cls)} style={styles.feeSaveBtn}>Save</button>
-                    <button onClick={() => setEditingFee(null)} style={styles.feeCancelBtn}>Cancel</button>
-                  </div>
-                ) : (
-                  <div style={styles.feeDisplay}>
-                    <span>Ksh {fees[cls]}</span>
-                    <button onClick={() => startEditFee(cls)} style={styles.feeEditBtn}>Edit</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <p style={styles.feeNote}>* Changes will apply to new students. Existing students' fees remain unchanged.</p>
-        </div>
-
-        {/* Branch Selector */}
-        <div style={styles.selectContainer}>
-          <label style={styles.label}>Select Branch:</label>
-          <select
-            value={selectedBranchId}
-            onChange={(e) => setSelectedBranchId(e.target.value)}
-            style={styles.select}
-          >
-            <option value="">-- Select Branch --</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name || branch.id}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={addStudent} style={styles.form}>
-          <input
-            type="text"
-            placeholder="Student Name"
-            value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
-            style={styles.input}
-          />
-          <input
-            type="email"
-            placeholder="Student Email"
-            value={studentEmail}
-            onChange={(e) => setStudentEmail(e.target.value)}
-            style={styles.input}
-          />
-          <input
-            type="tel"
-            placeholder="Phone Number"
-            value={studentPhone}
-            onChange={(e) => setStudentPhone(e.target.value)}
-            style={styles.input}
-          />
-          <input
-            type="text"
-            placeholder="ID Number"
-            value={idNumber}
-            onChange={(e) => setIdNumber(e.target.value)}
-            style={styles.input}
-          />
-          <input
-            type="number"
-            placeholder="Fee Paid (Ksh)"
-            value={feePaid}
-            onChange={(e) => setFeePaid(e.target.value)}
-            style={styles.input}
-          />
-
-          {/* Class selection with dynamic fee display */}
-          <div style={styles.classContainer}>
-            <label style={styles.label}>Classes Enrolled:</label>
-            <div style={styles.checkboxGroup}>
-              {classOptions.map(cls => (
-                <label key={cls} style={styles.checkboxLabel}>
+      {/* Fee Management Section */}
+      <div className="mb-6 p-4 border rounded-lg bg-gray-50">
+        <h3 className="text-base sm:text-lg font-semibold mb-3">Manage Class Fees (Market Prices)</h3>
+        <div className="flex flex-wrap gap-3 sm:gap-4">
+          {classOptions.map(cls => (
+            <div key={cls} className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-sm sm:text-base">{cls}:</span>
+              {editingFee === cls ? (
+                <div className="flex items-center gap-1">
                   <input
-                    type="checkbox"
-                    value={cls}
-                    checked={selectedClasses.includes(cls)}
-                    onChange={() => toggleClass(cls)}
-                    style={styles.checkbox}
+                    type="number"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="w-24 p-1 border rounded text-sm"
+                    autoFocus
                   />
-                  {cls} (Ksh {fees[cls]})
-                </label>
-              ))}
+                  <button onClick={() => saveFee(cls)} className="px-2 py-1 bg-green-600 text-white rounded text-xs">Save</button>
+                  <button onClick={() => setEditingFee(null)} className="px-2 py-1 bg-red-600 text-white rounded text-xs">Cancel</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span>Ksh {fees[cls]}</span>
+                  <button onClick={() => startEditFee(cls)} className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Edit</button>
+                </div>
+              )}
             </div>
-            {selectedClasses.length > 0 && (
-              <p style={styles.totalFeeHint}>
-                Total Fee: Ksh {computeTotalFee(selectedClasses)}
-              </p>
-            )}
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-2">* Changes will apply to new students. Existing students' fees remain unchanged.</p>
+      </div>
+
+      {/* Branch Selector */}
+      <div className="mb-4">
+        <label className="block text-gray-700 text-sm sm:text-base mb-1">Select Branch:</label>
+        <select
+          value={selectedBranchId}
+          onChange={(e) => setSelectedBranchId(e.target.value)}
+          className="w-full max-w-md p-2 border rounded text-sm sm:text-base"
+        >
+          <option value="">-- Select Branch --</option>
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.id}>
+              {branch.name || branch.id}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Form */}
+      <form onSubmit={addStudent} className="space-y-3 max-w-md">
+        <input
+          type="text"
+          placeholder="Student Name"
+          value={studentName}
+          onChange={(e) => setStudentName(e.target.value)}
+          className="w-full p-2 border rounded text-sm sm:text-base"
+        />
+        <input
+          type="email"
+          placeholder="Student Email"
+          value={studentEmail}
+          onChange={(e) => setStudentEmail(e.target.value)}
+          className="w-full p-2 border rounded text-sm sm:text-base"
+        />
+        <input
+          type="tel"
+          placeholder="Phone Number"
+          value={studentPhone}
+          onChange={(e) => setStudentPhone(e.target.value)}
+          className="w-full p-2 border rounded text-sm sm:text-base"
+        />
+        <input
+          type="text"
+          placeholder="ID Number"
+          value={idNumber}
+          onChange={(e) => setIdNumber(e.target.value)}
+          className="w-full p-2 border rounded text-sm sm:text-base"
+        />
+        <input
+          type="number"
+          placeholder="Fee Paid (Ksh)"
+          value={feePaid}
+          onChange={(e) => setFeePaid(e.target.value)}
+          className="w-full p-2 border rounded text-sm sm:text-base"
+        />
+
+        {/* Class selection with dynamic fee display */}
+        <div className="mt-2">
+          <label className="block text-gray-700 text-sm sm:text-base mb-1">Classes Enrolled:</label>
+          <div className="flex flex-wrap gap-3">
+            {classOptions.map(cls => (
+              <label key={cls} className="flex items-center gap-1 text-sm sm:text-base">
+                <input
+                  type="checkbox"
+                  value={cls}
+                  checked={selectedClasses.includes(cls)}
+                  onChange={() => toggleClass(cls)}
+                  className="mr-1"
+                />
+                {cls} (Ksh {fees[cls]})
+              </label>
+            ))}
           </div>
+          {selectedClasses.length > 0 && (
+            <p className="text-sm font-bold text-green-700 mt-2">
+              Total Fee: Ksh {computeTotalFee(selectedClasses)}
+            </p>
+          )}
+        </div>
 
-          <button type="submit" style={styles.button} disabled={loading}>
-            {loading ? 'Adding...' : 'Add Student'}
-          </button>
-        </form>
+        <button type="submit" disabled={loading} className="w-full bg-green-700 hover:bg-green-800 text-white py-2 rounded text-sm sm:text-base disabled:opacity-50">
+          {loading ? 'Adding...' : 'Add Student'}
+        </button>
+      </form>
 
-        {/* Students List */}
-        {selectedBranchId && (
-          <div style={styles.listContainer}>
-            <h2 style={styles.subtitle}>Students</h2>
-            {students.length === 0 ? (
-              <p>No students found</p>
-            ) : (
-              students.map((student) => {
+      {/* Students List */}
+      {selectedBranchId && (
+        <div className="mt-8">
+          <h2 className="text-lg sm:text-xl font-semibold mb-3">Students</h2>
+          {students.length === 0 ? (
+            <p className="text-gray-500 text-sm">No students found</p>
+          ) : (
+            <div className="space-y-3 max-h-[500px] overflow-y-auto">
+              {students.map((student) => {
                 const totalFee = student.totalFee || 0;
                 const paid = student.feePaid || 0;
                 const balance = totalFee - paid;
                 const classList = student.classes?.join(', ') || 'None';
                 return (
-                  <div key={student.id} style={styles.card}>
+                  <div key={student.id} className="border p-3 sm:p-4 rounded shadow-sm text-sm sm:text-base">
                     <p><strong>Admission No:</strong> {student.accountNumber || student.studentAccountId}</p>
                     <p><strong>Name:</strong> {student.name}</p>
                     <p><strong>Email:</strong> {student.email}</p>
@@ -389,47 +389,16 @@ if (!isAuthenticated) {
                     <p><strong>Class(es):</strong> {classList}</p>
                     <p><strong>Total Fee:</strong> Ksh {totalFee}</p>
                     <p><strong>Amount Paid:</strong> Ksh {paid}</p>
-                    <p style={{ fontWeight: 'bold', color: balance <= 0 ? 'green' : 'orange' }}>
+                    <p className={`font-bold ${balance <= 0 ? 'text-green-600' : 'text-orange-500'}`}>
                       <strong>Balance:</strong> Ksh {balance > 0 ? balance : 0}
                     </p>
                   </div>
                 );
-              })
-            )}
-          </div>
-        )}
-      </div>
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
-
-// Styles (unchanged)
-const styles: { [key: string]: React.CSSProperties } = {
-  container: { padding: '20px' },
-  title: { fontSize: '22px', marginBottom: '15px' },
-  selectContainer: { marginBottom: '20px' },
-  label: { display: 'block', marginBottom: '5px' },
-  select: { padding: '10px', borderRadius: '5px', border: '1px solid #ccc', width: '100%', maxWidth: '300px' },
-  form: { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '400px' },
-  input: { padding: '10px', borderRadius: '5px', border: '1px solid #ccc' },
-  button: { padding: '10px', backgroundColor: '#0a7', color: '#fff ', border: 'none', borderRadius: '5px', cursor: 'pointer' },
-  listContainer: { marginTop: '30px' },
-  subtitle: { fontSize: '18px', marginBottom: '10px' },
-  card: { padding: '10px', border: '1px solid #ddd', borderRadius: '5px', marginTop: '10px' },
-  classContainer: { marginTop: '5px' },
-  checkboxGroup: { display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '5px' },
-  checkboxLabel: { display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px' },
-  checkbox: { margin: 0 },
-  totalFeeHint: { marginTop: '8px', fontSize: '13px', fontWeight: 'bold', color: '#0a7' },
-  feeManagement: { marginBottom: '25px', padding: '15px', border: '1px solid #eee', borderRadius: '8px', backgroundColor: '#808067' },
-  feeGrid: { display: 'flex', flexWrap: 'wrap', gap: '15px', marginTop: '10px' },
-  feeItem: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' },
-  feeLabel: { fontWeight: 'bold', minWidth: '50px' },
-  feeDisplay: { display: 'flex', alignItems: 'center', gap: '8px' },
-  feeEdit: { display: 'flex', alignItems: 'center', gap: '5px' },
-  feeInput: { width: '100px', padding: '4px', borderRadius: '4px', border: '1px solid #ccc' },
-  feeEditBtn: { padding: '2px 8px', backgroundColor: '#2196F3', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
-  feeSaveBtn: { padding: '2px 8px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
-  feeCancelBtn: { padding: '2px 8px', backgroundColor: '#f44336', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
-  feeNote: { fontSize: '12px', color: '#666', marginTop: '10px' },
-};

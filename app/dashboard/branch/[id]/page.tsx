@@ -169,43 +169,43 @@ export default function BranchDashboard({ params }) {
     }
   }, [branchId, selectedDate, classFees]); // re-run when classFees changes
 
-  if (loading) return <div className="p-4">Loading branch dashboard...</div>;
-  if (error) return <div className="p-4 text-red-600">{error}</div>;
+  if (loading) return <div className="p-4 text-sm">Loading branch dashboard...</div>;
+  if (error) return <div className="p-4 text-red-600 text-sm">{error}</div>;
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">
+    <div className="p-4 sm:p-6">
+      <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
         ✅ Branch Dashboard: {branchName || branchId}
       </h1>
 
       {/* DATE FILTER */}
       <div className="mb-4">
-        <label><strong>Select Date:</strong></label><br />
+        <label className="text-sm sm:text-base"><strong>Select Date:</strong></label><br />
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="border p-2 rounded"
+          className="border p-1.5 sm:p-2 rounded text-sm sm:text-base"
         />
       </div>
 
       {/* TOTALS */}
-      <div className="mb-6">
+      <div className="mb-5 sm:mb-6 space-y-1 text-sm sm:text-base">
         <p><strong>📅 Daily Collection:</strong> Ksh {dailyTotal}</p>
         <p><strong>📊 Weekly Collection:</strong> Ksh {weeklyTotal}</p>
         <p><strong>📊 Yearly Collection:</strong> Ksh {yearlyTotal}</p>
       </div>
 
-      <h2 className="text-xl font-semibold mt-6 mb-2">
+      <h2 className="text-lg sm:text-xl font-semibold mt-5 sm:mt-6 mb-2 sm:mb-3">
         💰 Students Who Have Paid
       </h2>
 
       {students.length === 0 ? (
-        <p className="text-gray-500">
+        <p className="text-gray-500 text-sm sm:text-base">
           No students have made any payment yet.
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {students.map((student) => {
             const paid = student.feePaid || 0;
             const totalFee = student.totalFee || 0;
@@ -213,7 +213,7 @@ export default function BranchDashboard({ params }) {
             const isFullyPaid = balance <= 0;
 
             return (
-              <div key={student.id} className="border p-4 rounded shadow-sm">
+              <div key={student.id} className="border p-3 sm:p-4 rounded shadow-sm text-sm sm:text-base">
                 <p><strong>Name:</strong> {student.name}</p>
 
                 <p>
@@ -243,7 +243,7 @@ export default function BranchDashboard({ params }) {
                 </p>
 
                 {isFullyPaid && (
-                  <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-sm mt-1">
+                  <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs sm:text-sm mt-1">
                     Fully Paid ✓
                   </span>
                 )}

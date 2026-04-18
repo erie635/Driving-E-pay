@@ -111,23 +111,23 @@ export default function BranchInvitationManager({
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-6">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">
         Branch Invitations
       </h1>
 
-      {error && <p className="text-red-400 mb-4">{error}</p>}
+      {error && <p className="text-red-400 mb-3 text-sm">{error}</p>}
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {branches.map((branch) => (
-          <div key={branch.id} className="bg-white/10 p-4 rounded-lg">
-            <h2 className="text-xl font-semibold text-white mb-2">
+          <div key={branch.id} className="bg-white/10 p-3 sm:p-4 rounded-lg">
+            <h2 className="text-lg sm:text-xl font-semibold text-white mb-1 sm:mb-2">
               {branch.name}
             </h2>
 
-            <div className="flex flex-wrap gap-4 items-end">
-              <div className="flex-1">
-                <label className="block text-white/70 text-sm mb-1">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
+              <div className="flex-1 min-w-[140px]">
+                <label className="block text-white/70 text-xs sm:text-sm mb-1">
                   Password
                 </label>
                 <input
@@ -136,7 +136,7 @@ export default function BranchInvitationManager({
                   onChange={(e) =>
                     handlePasswordChange(branch.id, e.target.value)
                   }
-                  className="w-full px-3 py-2 bg-white/20 rounded text-white border border-white/20"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 rounded text-white border border-white/20 text-sm"
                   placeholder="Set branch password"
                 />
               </div>
@@ -145,7 +145,7 @@ export default function BranchInvitationManager({
               <button
                 onClick={() => handleGenerate(branch.id)}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:opacity-50"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:opacity-50 text-sm sm:text-base"
               >
                 Generate Invitation
               </button>
@@ -153,7 +153,7 @@ export default function BranchInvitationManager({
               {/* OPEN DASHBOARD */}
               <button
                 onClick={() => openDashboard(branch.id)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm sm:text-base"
               >
                 Open Dashboard
               </button>
@@ -162,13 +162,13 @@ export default function BranchInvitationManager({
             {/* SHOW LINK */}
             {invitationLinks[branch.id] && (
               <div className="mt-3">
-                <p className="text-white/70 text-sm">Invitation link:</p>
+                <p className="text-white/70 text-xs sm:text-sm">Invitation link:</p>
 
-                <code className="block bg-black/30 p-2 rounded break-all text-sm text-white">
+                <code className="block bg-black/30 p-2 rounded break-all text-xs sm:text-sm text-white">
                   {invitationLinks[branch.id]}
                 </code>
 
-                <p className="text-yellow-300 text-sm mt-1">
+                <p className="text-yellow-300 text-xs sm:text-sm mt-1">
                   Password: {passwords[branch.id]}
                 </p>
               </div>
@@ -178,7 +178,7 @@ export default function BranchInvitationManager({
       </div>
 
       {/* =========================
-          POPUP DASHBOARD
+          POPUP DASHBOARD (inline styles unchanged)
       ========================= */}
       {openBranchId && (
         <div
