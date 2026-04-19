@@ -497,7 +497,7 @@ export default function BranchStudentPage() {
 const styles: { [key: string]: React.CSSProperties } = {
   container: { padding: "20px" },
   title: { fontSize: "22px", marginBottom: "15px" },
-  selectContainer: { marginBottom: "20px" },
+  selectContainer: { marginBottom: "20px"},
   label: { display: "block", marginBottom: "5px" },
   select: {
     padding: "10px",
@@ -505,6 +505,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: "1px solid #ccc",
     width: "100%",
     maxWidth: "300px",
+    backgroundColor: "#7d7878",
+    color: "000",
+   
   },
   form: {
     display: "flex",
@@ -528,6 +531,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: "1px solid #ddd",
     borderRadius: "5px",
     marginTop: "10px",
+    color: "#000",
   },
   classContainer: { marginTop: "5px" },
   checkboxGroup: {

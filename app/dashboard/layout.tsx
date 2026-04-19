@@ -82,9 +82,9 @@ export default function DashboardClientLayout({
         }
       `}</style>
 
-      <div className="relative min-h-screen flex overflow-hidden bg-gray-50 dashboard-container">
+      <div className="relative min-h-screen flex overflow-hidden bg-red-300 dashboard-container">
         {/* Modern sidebar – clean, light, with subtle shadow */}
-        <nav className="w-38 bg-white shadow-lg z-10 flex flex-col border-r border-gray-300 dashboard-sidebar">
+        <nav className="w-38 bg-gray-200 shadow-lg z-10 flex flex-col border-r border-gray-300 dashboard-sidebar">
           <div className="p-6 border-b border-gray-900">
             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
               Dashboard
@@ -102,7 +102,7 @@ export default function DashboardClientLayout({
                 <span className="mr-3 text-xl">🏠</span>
                 <span className="font-medium">Home</span>
               </Link>
-            </li>
+            </li>                 
             <li>
               <Link
                 href="/dashboard/set-admin-claims"

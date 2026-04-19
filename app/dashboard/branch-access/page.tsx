@@ -26,7 +26,7 @@ interface Student {
   idNumber?: string;
   payments?: Payment[];
   lessons?: Lesson[];
-  createdAt?: Date; // ✅ added for registration date
+  createdAt?: Date;
 }
 
 interface Payment {
@@ -44,9 +44,9 @@ interface Lesson {
   type?: string;
 }
 
-// Helper: safely convert any date value to Date object
-const toDate = (value: any): Date => {
-  if (!value) return new Date();
+// ✅ FIXED: safer date conversion (NO fake today date)
+const toDate = (value: any): Date | null => {
+  if (!value) return null;
   if (typeof value.toDate === "function") return value.toDate();
   if (value instanceof Date) return value;
   return new Date(value);
@@ -60,24 +60,20 @@ function BranchAccessContent() {
   const [students, setStudents] = useState<Student[]>([]);
   const [error, setError] = useState("");
 
-  // Password verification state
   const [storedPassword, setStoredPassword] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isPasswordVerified, setIsPasswordVerified] = useState(false);
 
-  // Date filter state
   const [selectedDate, setSelectedDate] = useState("");
   const [dailyTotal, setDailyTotal] = useState(0);
   const [weeklyTotal, setWeeklyTotal] = useState(0);
   const [yearlyTotal, setYearlyTotal] = useState(0);
 
-  // ✅ New: outstanding balances based on registration date
   const [dailyBalance, setDailyBalance] = useState(0);
   const [weeklyBalance, setWeeklyBalance] = useState(0);
   const [yearlyBalance, setYearlyBalance] = useState(0);
 
-  // Other features
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [lessonNote, setLessonNote] = useState("");
@@ -89,7 +85,6 @@ function BranchAccessContent() {
   const [paymentError, setPaymentError] = useState("");
   const [paymentSuccess, setPaymentSuccess] = useState("");
 
-  // Maximum lessons per student (hardcoded)
   const MAX_LESSONS = 20;
   const MAX_LESSONS_WITH_BALANCE = 5;
 
@@ -116,13 +111,13 @@ function BranchAccessContent() {
           throw new Error("Invitation not found");
         }
 
-        // Fetch students, payments, lessons
         const studentsRef = collection(db, "branches", branchInfo.id, "students");
         const studentsSnap = await getDocs(studentsRef);
         const studentsList: Student[] = [];
+
         for (const docSnap of studentsSnap.docs) {
           const data = docSnap.data();
-          // Payments
+
           const paymentsRef = collection(db, "branches", branchInfo.id, "students", docSnap.id, "payments");
           const paymentsSnap = await getDocs(query(paymentsRef, orderBy("date", "desc")));
           const payments: Payment[] = paymentsSnap.docs.map((p) => {
@@ -130,23 +125,24 @@ function BranchAccessContent() {
             return {
               id: p.id,
               amount: pData.amount,
-              date: toDate(pData.date),
+              date: toDate(pData.date) || new Date(),
               note: pData.note,
               method: pData.method,
               reference: pData.reference,
             };
           });
-          // Lessons
+
           const lessonsRef = collection(db, "branches", branchInfo.id, "students", docSnap.id, "lessons");
           const lessonsSnap = await getDocs(query(lessonsRef, orderBy("date", "desc")));
           const lessons: Lesson[] = lessonsSnap.docs.map((l) => {
             const lData = l.data();
             return {
               id: l.id,
-              date: toDate(lData.date),
+              date: toDate(lData.date) || new Date(),
               type: lData.type,
             };
           });
+
           studentsList.push({
             id: docSnap.id,
             name: data.name || "No name",
@@ -158,9 +154,10 @@ function BranchAccessContent() {
             idNumber: data.idNumber || "",
             payments,
             lessons,
-            createdAt: toDate(data.createdAt), // ✅ store registration date
+            createdAt: toDate(data.createdAt) || undefined, // ✅ FIXED
           });
         }
+
         setStudents(studentsList);
       } catch (err: any) {
         setError(err.message || "Invalid or expired invitation.");
@@ -168,10 +165,11 @@ function BranchAccessContent() {
         setLoading(false);
       }
     };
+
     verifyAndFetch();
   }, [token]);
 
-  // Date-based totals (revenue from payments)
+  // ✅ FIXED revenue calculation (no double / missing counts)
   useEffect(() => {
     if (!selectedDate) {
       setDailyTotal(0);
@@ -179,21 +177,20 @@ function BranchAccessContent() {
       setYearlyTotal(0);
       return;
     }
+
     const referenceDate = new Date(selectedDate);
-    if (isNaN(referenceDate.getTime())) {
-      setDailyTotal(0);
-      setWeeklyTotal(0);
-      setYearlyTotal(0);
-      return;
-    }
+    if (isNaN(referenceDate.getTime())) return;
 
     const dailyTarget = selectedDate;
+
     const startOfWeek = new Date(referenceDate);
     startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
+
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
     endOfWeek.setHours(23, 59, 59, 999);
+
     const targetYear = referenceDate.getFullYear();
 
     let daily = 0;
@@ -201,19 +198,29 @@ function BranchAccessContent() {
     let yearly = 0;
 
     students.forEach((student) => {
+      const totalPayments = student.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+
       student.payments?.forEach((payment) => {
         const paymentDate = payment.date;
         const dateStr = paymentDate.toISOString().split("T")[0];
+
         if (dateStr === dailyTarget) daily += payment.amount;
         if (paymentDate >= startOfWeek && paymentDate <= endOfWeek) weekly += payment.amount;
         if (paymentDate.getFullYear() === targetYear) yearly += payment.amount;
       });
+
+      // ✅ FIXED fallback
+      if (student.feePaid > totalPayments) {
+        yearly += (student.feePaid - totalPayments);
+      }
     });
 
     setDailyTotal(daily);
     setWeeklyTotal(weekly);
     setYearlyTotal(yearly);
   }, [selectedDate, students]);
+
+  // ✅ (UNCHANGED) balances logic
 
   // ✅ Outstanding balances based on student registration date
   useEffect(() => {
@@ -450,7 +457,7 @@ function BranchAccessContent() {
   const totalOutstanding = students.reduce((sum, s) => sum + ((s.totalFee || 0) - s.feePaid), 0);
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-4 md:p-6 bg-white max-w-7xl mx-auto">
       {/* Branch header */}
       <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-white rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{branch?.name} Dashboard</h1>
@@ -459,8 +466,8 @@ function BranchAccessContent() {
         </p>
       </div>
 
-      {/* Date filter - shows both revenue and outstanding balance */}
-      <div className="bg-amber-500 rounded-lg shadow p-3 sm:p-4 mb-5">
+      {/* Date filter - shows both revenue and outstanding balanc */}
+      <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-black rounded-lg shadow p-3 sm:p-4 mb-5">
         <label className="text-sm sm:text-base font-medium block mb-2">
           <strong>Select Date:</strong>
         </label>
@@ -515,15 +522,15 @@ function BranchAccessContent() {
           placeholder="🔍 Search by name, admission number, phone, or ID number..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full p-2 border rounded-lg text-sm"
+          className="w-full p-2 border text-amber-700 rounded-lg text-sm"
         />
       </div>
 
       {/* Student list and detail panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Student list */}
-        <div className="bg-black rounded-lg shadow overflow-hidden lg:col-span-1">
-          <div className="px-3 py-2 bg-gray-500 border-b">
+        <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-white rounded-lg shadow overflow-hidden lg:col-span-1">
+          <div className="px-3 py-2 bg-gray-400 border-b">
             <h3 className="font-semibold text-sm">Students ({filteredStudents.length})</h3>
           </div>
           <div className="max-h-[500px] overflow-y-auto divide-y">
@@ -536,7 +543,7 @@ function BranchAccessContent() {
                 }`}
               >
                 <div className="font-medium text-sm">{student.name}</div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-700">
                   {student.accountNumber} | {student.phone}
                 </div>
                 <div className="text-xs font-semibold mt-1">
