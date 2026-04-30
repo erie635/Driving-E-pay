@@ -50,39 +50,123 @@ export default function DashboardClientLayout({
 
   return (
     <>
-      {/* Responsive styles – only for small screens, does not change your classes */}
+      {/* Responsive + small font styles – overrides Tailwind, keeps your logic unchanged */}
       <style>{`
+        /* ===== GLOBAL SMALL FONTS (base) ===== */
+        body, .dashboard-container, .dashboard-main-inner, button, a, p, h1, h2, h3, h4, span, li {
+          font-size: 14px;
+        }
         @media (max-width: 768px) {
+          body, .dashboard-container, .dashboard-main-inner, button, a, p, h1, h2, h3, h4, span, li {
+            font-size: 12px;
+          }
+        }
+
+        /* ===== RESPONSIVE LAYOUT (mobile first) ===== */
+        .dashboard-container {
+          flex-direction: column !important;
+        }
+        .dashboard-sidebar {
+          width: 100% !important;
+          position: relative !important;
+          border-right: none !important;
+          border-bottom: 1px solid #e5e7eb !important;
+        }
+        .dashboard-main {
+          padding: 0.5rem !important;
+        }
+        .dashboard-main-inner {
+          padding: 0.75rem !important;
+        }
+        .dashboard-sidebar ul li a,
+        .dashboard-sidebar ul li button {
+          padding: 0.6rem 0.8rem !important;
+          margin: 0 0.25rem !important;
+          font-size: 0.85rem !important;
+        }
+        .dashboard-sidebar .p-6:first-child {
+          padding: 0.75rem !important;
+        }
+        .dashboard-sidebar .p-6:last-child {
+          padding: 0.75rem !important;
+        }
+        /* Adjust sidebar title and subtitle */
+        .dashboard-sidebar h1 {
+          font-size: 1.2rem !important;
+        }
+        .dashboard-sidebar p {
+          font-size: 0.7rem !important;
+        }
+        /* Branch selection grid */
+        .grid.grid-cols-1.md\\:grid-cols-2.gap-5 {
+          gap: 0.75rem !important;
+        }
+        .bg-gray-50.hover\\:bg-indigo-50.transition-all.p-5.rounded-xl {
+          padding: 0.75rem !important;
+        }
+        .text-gray-800.font-semibold.text-lg {
+          font-size: 0.9rem !important;
+        }
+        .text-gray-500.text-sm.mt-1 {
+          font-size: 0.7rem !important;
+        }
+        .mt-6.p-5.bg-indigo-50.rounded-xl {
+          padding: 0.75rem !important;
+        }
+        .text-gray-800.text-base {
+          font-size: 0.85rem !important;
+        }
+        button.px-4.py-2 {
+          padding: 0.3rem 0.75rem !important;
+          font-size: 0.75rem !important;
+        }
+        /* Adjust profile section */
+        .dashboard-sidebar .w-9.h-9 {
+          width: 2rem !important;
+          height: 2rem !important;
+        }
+        .dashboard-sidebar .text-sm.font-medium {
+          font-size: 0.7rem !important;
+        }
+        .dashboard-sidebar .text-xs {
+          font-size: 0.6rem !important;
+        }
+        .dashboard-sidebar svg.w-5.h-5 {
+          width: 1rem !important;
+          height: 1rem !important;
+        }
+
+        /* Desktop improvements (optional) */
+        @media (min-width: 769px) {
           .dashboard-container {
-            flex-direction: column !important;
+            flex-direction: row !important;
           }
           .dashboard-sidebar {
-            width: 100% !important;
-            position: relative !important;
-            border-right: none !important;
-            border-bottom: 1px solid #e5e7eb !important;
+            width: 260px !important;
+            position: sticky !important;
+            top: 0 !important;
+            height: 100vh !important;
           }
           .dashboard-main {
-            padding: 0.5rem !important;
+            padding: 1rem !important;
           }
           .dashboard-main-inner {
-            padding: 1rem !important;
+            padding: 1.5rem !important;
           }
           .dashboard-sidebar ul li a,
           .dashboard-sidebar ul li button {
             padding: 0.75rem 1rem !important;
             margin: 0 0.5rem !important;
+            font-size: 0.9rem !important;
           }
-          .dashboard-sidebar .p-6:first-child {
-            padding: 1rem !important;
-          }
-          .dashboard-sidebar .p-6:last-child {
-            padding: 1rem !important;
+          body, .dashboard-container, .dashboard-main-inner, button, a, p, span, li {
+            font-size: 15px;
           }
         }
       `}</style>
 
-      <div className="relative min-h-screen flex overflow-hidden bg-red-300 dashboard-container">
+      {/* ✅ CHANGED: background from red-300 to white */}
+      <div className="relative min-h-screen flex overflow-hidden bg-white dashboard-container">
         {/* Modern sidebar – clean, light, with subtle shadow */}
         <nav className="w-38 bg-gray-200 shadow-lg z-10 flex flex-col border-r border-gray-300 dashboard-sidebar">
           <div className="p-6 border-b border-gray-900">
@@ -99,8 +183,8 @@ export default function DashboardClientLayout({
                 onClick={resetBranchSelection}
                 className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
               >
-                <span className="mr-3 text-xl">🏠</span>
-                <span className="font-medium">Home</span>
+                <span className="mr-3 text-xl"></span>
+                <span className="font-medium">Branches Link</span>
               </Link>
             </li>                 
             <li>
@@ -109,18 +193,38 @@ export default function DashboardClientLayout({
                 onClick={resetBranchSelection}
                 className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
               >
-                <span className="mr-3 text-xl">👑</span>
-                <span className="font-medium">Admin</span>
+                <span className="mr-3 text-xl"></span>
+                <span className="font-medium">School Fee Manager</span>
+              </Link>
+            </li>
+             <li>
+              <Link
+                href="/dashboard/exam-requests"
+                onClick={resetBranchSelection}
+                className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
+              >
+                <span className="mr-3 text-xl"></span>
+                <span className="font-medium">Exams List</span>
+              </Link>
+            </li>
+            <li>
+             <Link
+                href="/dashboard/company"
+                onClick={resetBranchSelection}
+                className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
+              >
+                <span className="mr-3 text-xl"></span>
+                <span className="font-medium">School Admin</span>
               </Link>
             </li>
             <li>
               <Link
-                href="/dashboard/adminBranch"
+                href="/dashboard/overpayments"
                 onClick={resetBranchSelection}
                 className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
               >
-                <span className="mr-3 text-xl">👑</span>
-                <span className="font-medium">Admin2</span>
+                <span className="mr-3 text-xl"></span>
+                <span className="font-medium"> Over payments</span>
               </Link>
             </li>
             <li>
@@ -129,7 +233,7 @@ export default function DashboardClientLayout({
                 onClick={resetBranchSelection}
                 className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
               >
-                <span className="mr-3 text-xl">🏢</span>
+                <span className="mr-3 text-xl"></span>
                 <span className="font-medium">Our Branches</span>
               </Link>
             </li>
@@ -139,7 +243,7 @@ export default function DashboardClientLayout({
                 onClick={resetBranchSelection}
                 className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
               >
-                <span className="mr-3 text-xl">🏢</span>
+                <span className="mr-3 text-xl"></span>
                 <span className="font-medium">Admin Access</span>
               </Link>
             </li>
@@ -148,7 +252,7 @@ export default function DashboardClientLayout({
                 onClick={handleStudentClick}
                 className="flex items-center w-full px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
               >
-                <span className="mr-3 text-xl">🎓</span>
+                <span className="mr-3 text-xl"></span>
                 <span className="font-medium">Branch Label</span>
               </button>
             </li>
@@ -158,8 +262,28 @@ export default function DashboardClientLayout({
                 onClick={resetBranchSelection}
                 className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
               >
-                <span className="mr-3 text-xl">➕</span>
+                <span className="mr-3 text-xl"></span>
                 <span className="font-medium">Add Branch</span>
+              </Link>
+            </li>
+               <li>
+              <Link
+                href="/dashboard/transfers"
+                onClick={resetBranchSelection}
+                className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
+              >
+                <span className="mr-3 text-xl"></span>
+                <span className="font-medium">Transfers Requests</span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/refund-logs"
+                onClick={resetBranchSelection}
+                className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
+              >
+                <span className="mr-3 text-xl"></span>
+                <span className="font-medium">Refund Logs</span>
               </Link>
             </li>
             <li>
@@ -168,7 +292,7 @@ export default function DashboardClientLayout({
                 onClick={resetBranchSelection}
                 className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
               >
-                <span className="mr-3 text-xl">💬</span>
+                <span className="mr-3 text-xl"></span>
                 <span className="font-medium">SMS</span>
               </Link>
             </li>
@@ -208,7 +332,8 @@ export default function DashboardClientLayout({
 
         {/* Main content – clean white card */}
         <main className="flex-1 p-2 z-10 overflow-auto dashboard-main">
-          <div className="bg-[#980002] rounded-2xl shadow-sm border border-gray-300 p-6 dashboard-main-inner">
+          {/* ✅ CHANGED: background from [#980002] to white */}
+          <div className="bg-[#fff8e1] rounded-2xl shadow-sm border border-gray-300 p-6 dashboard-main-inner">
             {showBranchSelection ? (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-gray-800">

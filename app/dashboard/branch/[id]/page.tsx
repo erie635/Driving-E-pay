@@ -28,7 +28,7 @@ interface Student {
   accountNumber?: string;
   createdAt?: any;
   classes?: string[];
-  totalFee?: number;        // total fee based on enrolled classes
+  totalFee?: number;
 }
 
 export default function BranchDashboard({ params }) {
@@ -56,7 +56,6 @@ export default function BranchDashboard({ params }) {
         if (feesDoc.exists()) {
           setClassFees(feesDoc.data() as Record<string, number>);
         } else {
-          // Create default if not exists (optional)
           console.log('No class fees document found, using defaults');
         }
       } catch (err) {
@@ -69,7 +68,6 @@ export default function BranchDashboard({ params }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // ✅ Branch name
         const branchRef = doc(db, 'branches', branchId);
         const branchSnap = await getDoc(branchRef);
 
@@ -79,7 +77,6 @@ export default function BranchDashboard({ params }) {
           setBranchName(branchId);
         }
 
-        // ✅ Students
         const studentsRef = collection(db, 'branches', branchId, 'students');
         const q = query(studentsRef, where('feePaid', '>', 0));
         const snapshot = await getDocs(q);
@@ -88,8 +85,7 @@ export default function BranchDashboard({ params }) {
           const data = doc.data();
           const classes = data.classes || [];
           
-          // Compute total fee based on enrolled classes and current classFees
-          let totalFee = data.totalFee; // if already stored in DB, use it
+          let totalFee = data.totalFee;
           if (!totalFee && classes.length) {
             totalFee = classes.reduce((sum, cls) => sum + (classFees[cls] || 0), 0);
           } else if (!totalFee) {
@@ -108,7 +104,6 @@ export default function BranchDashboard({ params }) {
 
         setStudents(studentList);
 
-        // --- Date-based calculations (unchanged) ---
         const today = new Date().toISOString().split('T')[0];
         const referenceDate = selectedDate ? new Date(selectedDate) : new Date();
         if (isNaN(referenceDate.getTime())) {
@@ -167,91 +162,188 @@ export default function BranchDashboard({ params }) {
     if (branchId) {
       fetchData();
     }
-  }, [branchId, selectedDate, classFees]); // re-run when classFees changes
+  }, [branchId, selectedDate, classFees]);
 
   if (loading) return <div className="p-4 text-sm">Loading branch dashboard...</div>;
   if (error) return <div className="p-4 text-red-600 text-sm">{error}</div>;
 
   return (
-    <div className="p-4 sm:p-6">
-      <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
-        ✅ Branch Dashboard: {branchName || branchId}
-      </h1>
+    <>
+      <style>{`
+        /* Override Tailwind classes – responsive, small fonts */
+        .p-4.sm\\:p-6 {
+          padding: 0.75rem !important;
+        }
+        @media (min-width: 640px) {
+          .p-4.sm\\:p-6 {
+            padding: 1rem !important;
+          }
+        }
 
-      {/* DATE FILTER */}
-      <div className="mb-4">
-        <label className="text-sm sm:text-base"><strong>Select Date:</strong></label><br />
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="border p-1.5 sm:p-2 rounded text-sm sm:text-base"
-        />
-      </div>
+        .text-xl.sm\\:text-2xl.font-bold.mb-3.sm\\:mb-4 {
+          font-size: 1.25rem !important;
+          margin-bottom: 0.5rem !important;
+        }
+        @media (min-width: 640px) {
+          .text-xl.sm\\:text-2xl.font-bold.mb-3.sm\\:mb-4 {
+            font-size: 1.4rem !important;
+            margin-bottom: 0.75rem !important;
+          }
+        }
 
-      {/* TOTALS */}
-      <div className="mb-5 sm:mb-6 space-y-1 text-sm sm:text-base">
-        <p><strong>📅 Daily Collection:</strong> Ksh {dailyTotal}</p>
-        <p><strong>📊 Weekly Collection:</strong> Ksh {weeklyTotal}</p>
-        <p><strong>📊 Yearly Collection:</strong> Ksh {yearlyTotal}</p>
-      </div>
+        .mb-4 label {
+          font-size: 0.8rem !important;
+        }
+        input[type="date"] {
+          font-size: 0.75rem !important;
+          padding: 0.3rem 0.5rem !important;
+        }
+        @media (min-width: 640px) {
+          .mb-4 label {
+            font-size: 0.9rem !important;
+          }
+          input[type="date"] {
+            font-size: 0.85rem !important;
+            padding: 0.4rem 0.75rem !important;
+          }
+        }
 
-      <h2 className="text-lg sm:text-xl font-semibold mt-5 sm:mt-6 mb-2 sm:mb-3">
-        💰 Students Who Have Paid
-      </h2>
+        .mb-5.sm\\:mb-6.space-y-1.text-sm.sm\\:text-base p {
+          font-size: 0.75rem !important;
+          margin-bottom: 0.2rem !important;
+        }
+        @media (min-width: 640px) {
+          .mb-5.sm\\:mb-6.space-y-1.text-sm.sm\\:text-base p {
+            font-size: 0.85rem !important;
+          }
+        }
 
-      {students.length === 0 ? (
-        <p className="text-gray-500 text-sm sm:text-base">
-          No students have made any payment yet.
-        </p>
-      ) : (
-        <div className="space-y-3 sm:space-y-4">
-          {students.map((student) => {
-            const paid = student.feePaid || 0;
-            const totalFee = student.totalFee || 0;
-            const balance = totalFee - paid;
-            const isFullyPaid = balance <= 0;
+        .text-lg.sm\\:text-xl.font-semibold.mt-5.sm\\:mt-6.mb-2.sm\\:mb-3 {
+          font-size: 1rem !important;
+          margin-top: 1rem !important;
+        }
+        @media (min-width: 640px) {
+          .text-lg.sm\\:text-xl.font-semibold.mt-5.sm\\:mt-6.mb-2.sm\\:mb-3 {
+            font-size: 1.125rem !important;
+            margin-top: 1.25rem !important;
+          }
+        }
 
-            return (
-              <div key={student.id} className="border p-3 sm:p-4 rounded shadow-sm text-sm sm:text-base">
-                <p><strong>Name:</strong> {student.name}</p>
+        .space-y-3.sm\\:space-y-4 > div {
+          border: 1px solid #e5e7eb !important;
+          padding: 0.5rem !important;
+          border-radius: 0.25rem !important;
+        }
+        @media (min-width: 640px) {
+          .space-y-3.sm\\:space-y-4 > div {
+            padding: 0.75rem !important;
+          }
+        }
 
-                <p>
-                  <strong>Account Number:</strong>{' '}
-                  {student.accountNumber}
-                </p>
+        .border.p-3.sm\\:p-4.rounded.shadow-sm.text-sm.sm\\:text-base p {
+          font-size: 0.7rem !important;
+          margin-bottom: 0.25rem !important;
+        }
+        @media (min-width: 640px) {
+          .border.p-3.sm\\:p-4.rounded.shadow-sm.text-sm.sm\\:text-base p {
+            font-size: 0.8rem !important;
+          }
+        }
 
-                {/* ✅ Display classes the student enrolled in */}
-                <p>
-                  <strong>Classes Enrolled:</strong>{' '}
-                  {student.classes && student.classes.length > 0
-                    ? student.classes.join(', ')
-                    : 'Not specified'}
-                </p>
+        span.inline-block.bg-green-100.text-green-800.px-2.py-1.rounded.text-xs.sm\\:text-sm.mt-1 {
+          font-size: 0.6rem !important;
+          padding: 0.2rem 0.5rem !important;
+        }
+        @media (min-width: 640px) {
+          span.inline-block.bg-green-100.text-green-800.px-2.py-1.rounded.text-xs.sm\\:text-sm.mt-1 {
+            font-size: 0.7rem !important;
+          }
+        }
 
-                <p>
-                  <strong>Total Fee (based on classes):</strong> Ksh {totalFee}
-                </p>
+        .p-4.text-sm, .p-4.text-red-600.text-sm {
+          font-size: 0.75rem !important;
+          padding: 0.75rem !important;
+        }
+      `}</style>
 
-                <p>
-                  <strong>Paid Amount:</strong> Ksh {paid}
-                </p>
+      {/* Main container: force dark text on white background for full visibility */}
+      <div className="p-4 sm:p-6" style={{ backgroundColor: 'white', color: '#111827' }}>
+        <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+          ✅ Branch Dashboard: {branchName || branchId}
+        </h1>
 
-                <p className={isFullyPaid ? 'text-green-600' : 'text-yellow-500'}>
-                  <strong>Remaining Balance:</strong>{' '}
-                  Ksh {balance > 0 ? balance : 0}
-                </p>
-
-                {isFullyPaid && (
-                  <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs sm:text-sm mt-1">
-                    Fully Paid ✓
-                  </span>
-                )}
-              </div>
-            );
-          })}
+        {/* DATE FILTER */}
+        <div className="mb-4">
+          <label className="text-sm sm:text-base"><strong>Select Date:</strong></label><br />
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="border p-1.5 sm:p-2 rounded text-sm sm:text-base"
+          />
         </div>
-      )}
-    </div>
+
+        {/* TOTALS */}
+        <div className="mb-5 sm:mb-6 space-y-1 text-sm sm:text-base">
+          <p><strong>📅 Daily Collection:</strong> Ksh {dailyTotal}</p>
+          <p><strong>📊 Weekly Collection:</strong> Ksh {weeklyTotal}</p>
+          <p><strong>📊 Yearly Collection:</strong> Ksh {yearlyTotal}</p>
+        </div>
+
+        <h2 className="text-lg sm:text-xl font-semibold mt-5 sm:mt-6 mb-2 sm:mb-3">
+          💰 Students Who Have Paid
+        </h2>
+
+        {students.length === 0 ? (
+          <p className="text-gray-500 text-sm sm:text-base" style={{ color: '#4b5563' }}>
+            No students have made any payment yet.
+          </p>
+        ) : (
+          <div className="space-y-3 sm:space-y-4">
+            {students.map((student) => {
+              const paid = student.feePaid || 0;
+              const totalFee = student.totalFee || 0;
+              const balance = totalFee - paid;
+              const isFullyPaid = balance <= 0;
+
+              return (
+                <div key={student.id} className="border p-3 sm:p-4 rounded shadow-sm text-sm sm:text-base">
+                  <p><strong>Name:</strong> {student.name}</p>
+                  <p>
+                    <strong>Account Number:</strong>{' '}
+                    {student.accountNumber}
+                  </p>
+                  <p>
+                    <strong>Classes Enrolled:</strong>{' '}
+                    {student.classes && student.classes.length > 0
+                      ? student.classes.join(', ')
+                      : 'Not specified'}
+                  </p>
+                  <p>
+                    <strong>Total Fee (based on classes):</strong> Ksh {totalFee}
+                  </p>
+                  <p>
+                    <strong>Paid Amount:</strong> Ksh {paid}
+                  </p>
+                  {/* Ensure remaining balance text is readable: dark green or dark amber */}
+                  <p
+                    className={isFullyPaid ? 'text-green-600' : 'text-yellow-500'}
+                    style={{ color: isFullyPaid ? '#15803d' : '#b45309' }}
+                  >
+                    <strong>Remaining Balance:</strong>{' '}
+                    Ksh {balance > 0 ? balance : 0}
+                  </p>
+                  {isFullyPaid && (
+                    <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs sm:text-sm mt-1">
+                      Fully Paid ✓
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

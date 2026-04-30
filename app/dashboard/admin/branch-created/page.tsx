@@ -23,8 +23,10 @@ const DEFAULT_CLASS_FEES: Record<string, number> = {
   A3: 7500,
 };
 
-// Password from environment variable
-const REQUIRED_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123";
+// =====================================================
+// 🔐 INTERNAL PASSWORD (hardcoded) – change as needed
+// =====================================================
+const REQUIRED_PASSWORD = "1234";
 
 export default function BranchInvitationManager({
   branches: propBranches,
@@ -212,10 +214,10 @@ export default function BranchInvitationManager({
     );
   }
 
-  // --- Authenticated view: original content with reduced font size and responsiveness ---
+  // --- Authenticated view: all text black, branch cards with blue hover, visible on white ---
   if (!branches.length && !error) {
     return (
-      <div className="p-4 sm:p-6 text-white text-sm">
+      <div className="p-4 sm:p-6 text-black text-sm">
         Loading branches...
       </div>
     );
@@ -223,21 +225,24 @@ export default function BranchInvitationManager({
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-      <h1 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">
+      <h1 className="text-xl sm:text-2xl font-bold text-black mb-4 sm:mb-6">
         Manage Branch Invitations
       </h1>
       {error && <p className="text-red-400 mb-3 text-sm">{error}</p>}
 
       <div className="space-y-4 sm:space-y-6">
         {branches.map((branch) => (
-          <div key={branch.id} className="bg-white/10 p-3 sm:p-4 rounded-lg">
-            <h2 className="text-lg sm:text-xl font-semibold text-white mb-1 sm:mb-2">
+          <div 
+            key={branch.id} 
+            className="bg-white border border-gray-300 p-3 sm:p-4 rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-400 transition-all duration-200"
+          >
+            <h2 className="text-lg sm:text-xl font-semibold text-black mb-1 sm:mb-2">
               {branch.name}
             </h2>
 
             <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
               <div className="flex-1 min-w-[140px]">
-                <label className="block text-white/70 text-xs sm:text-sm mb-1">
+                <label className="block text-black/70 text-xs sm:text-sm mb-1">
                   Password
                 </label>
                 <input
@@ -246,7 +251,7 @@ export default function BranchInvitationManager({
                   onChange={(e) =>
                     handlePasswordChange(branch.id, e.target.value)
                   }
-                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 rounded text-white border border-white/20 text-sm"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded text-black text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Set branch password"
                 />
               </div>
@@ -267,15 +272,14 @@ export default function BranchInvitationManager({
 
             {invitationLinks[branch.id] && (
               <div className="mt-3">
-                <p className="text-white/70 text-xs sm:text-sm">Invitation link:</p>
-                <code className="block bg-black/30 p-2 rounded break-all text-xs sm:text-sm text-white">
+                <p className="text-black/70 text-xs sm:text-sm">Invitation link:</p>
+                <code className="block bg-gray-100 p-2 rounded break-all text-xs sm:text-sm text-black border border-gray-200">
                   {invitationLinks[branch.id]}
                 </code>
-                <p className="text-yellow-300 text-xs sm:text-sm mt-1">
+                <p className="text-yellow-700 text-xs sm:text-sm mt-1">
                   Password: {passwords[branch.id]}
                 </p>
-                {/* ✅ SECURITY REMINDER – no logic/CSS changes */}
-                <p className="text-red-300 text-xs mt-2">
+                <p className="text-red-600 text-xs mt-2">
                   ⚠️ The user must enter the above password when accessing this link to view the branch dashboard.
                 </p>
               </div>
@@ -284,7 +288,7 @@ export default function BranchInvitationManager({
         ))}
       </div>
 
-      {/* Popup for main admin (inline styles untouched, as requested) */}
+      {/* Popup for main admin – visible on white background */}
       {openBranchId && (
         <div
           style={{
@@ -293,7 +297,7 @@ export default function BranchInvitationManager({
             left: 0,
             width: "100%",
             height: "100%",
-            backgroundColor: "rgba(0,0,0,0.7)",
+            backgroundColor: "rgba(0,0,0,0.5)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -302,23 +306,26 @@ export default function BranchInvitationManager({
         >
           <div
             style={{
-              backgroundColor: "#ff2d2d",
+              backgroundColor: "#052E16",
               padding: "20px",
               borderRadius: "10px",
               width: "80%",
               maxHeight: "80%",
               overflowY: "auto",
-              color: "white",
+              color: "#fff",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
             }}
           >
             <button
               onClick={() => setOpenBranchId(null)}
               style={{
                 float: "right",
-                background: "black",
-                color: "white",
+                background: "#000",
+                color: "#fff",
                 padding: "5px 10px",
                 border: "none",
+                borderRadius: "5px",
                 cursor: "pointer",
               }}
             >
@@ -340,45 +347,21 @@ export default function BranchInvitationManager({
                   <div
                     key={student.id}
                     style={{
-                      border: "1px solid white",
+                      border: "1px solid #ebe5e5",
                       padding: "10px",
                       marginBottom: "10px",
                       borderRadius: "5px",
                     }}
                   >
-                    <p>
-                      <strong>Name:</strong> {student.name}
-                    </p>
-                    <p>
-                      <strong>Account Number:</strong>{" "}
-                      {student.accountNumber || student.id}
-                    </p>
-                    <p>
-                      <strong>Classes Enrolled:</strong> {classesList}
-                    </p>
-                    <p>
-                      <strong>Total Fee:</strong> Ksh {totalFee}
-                    </p>
-                    <p>
-                      <strong>Paid:</strong> Ksh {paid}
-                    </p>
-                    <p>
-                      <strong>Balance:</strong> Ksh {balance}
-                    </p>
-                    <p>
-                      <strong>Phone:</strong> {student.phone || "N/A"}
-                    </p>
-                    <p>
-                      <strong>ID Number:</strong> {student.idNumber || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Reg. Date:</strong>{" "}
-                      {student.createdAt
-                        ? new Date(
-                            student.createdAt.seconds * 1000,
-                          ).toLocaleDateString()
-                        : "Unknown"}
-                    </p>
+                    <p><strong>Name:</strong> {student.name}</p>
+                    <p><strong>Account Number:</strong> {student.accountNumber || student.id}</p>
+                    <p><strong>Classes Enrolled:</strong> {classesList}</p>
+                    <p><strong>Total Fee:</strong> Ksh {totalFee}</p>
+                    <p><strong>Paid:</strong> Ksh {paid}</p>
+                    <p><strong>Balance:</strong> Ksh {balance}</p>
+                    <p><strong>Phone:</strong> {student.phone || "N/A"}</p>
+                    <p><strong>ID Number:</strong> {student.idNumber || "N/A"}</p>
+                    <p><strong>Reg. Date:</strong> {student.createdAt ? new Date(student.createdAt.seconds * 1000).toLocaleDateString() : "Unknown"}</p>
                   </div>
                 );
               })

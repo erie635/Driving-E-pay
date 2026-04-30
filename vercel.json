@@ -1,0 +1,20 @@
+{
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_FIREBASE_API_KEY": "AIzaSyBM2yGqWQ3nzs2nWLzMT2Jor3zvfN95ScA",
+      "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "harmflow-driving-school-test.firebaseapp.com",
+      "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "harmflow-driving-school-test",
+      "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "harmflow-driving-school-test.firebasestorage.app",
+      "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "330544758296",
+      "NEXT_PUBLIC_FIREBASE_APP_ID": "1:330544758296:web:22096789c88a54c3590d6d",
+      "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-ZNBJNZN10N",
+      "NEXT_PUBLIC_AT_SENDER_ID": "AFRICASTKNG",
+      "NEXT_PUBLIC_ADMIN_PASSWORD": "ivana@11",
+      "NEXT_PUBLIC_MISSING_TRANSACTION_STUDENTS_PASSWORD": "Ivana@11",
+      "NEXT_PUBLIC_SCHOOL_FEE_PASSWORD": "eric@11",
+      "NEXT_PUBLIC_EDIT_STUDENTS_PASSWORD": "1234"
+      "AT_API_KEY": "atsk_fc8790c6876ea06818db97d7a04e3fe2499fccf2bd7fb6958ee9d98963e94eacf1bf1c26",
+      "AT_USERNAME": "sandbox"
+    }
+  }
+}

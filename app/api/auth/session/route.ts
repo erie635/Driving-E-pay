@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 
+// 👇 Moved outside – now at top level
+export async function GET() {
+  return new Response("GET works", { status: 200 });
+}
+
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get('authorization');

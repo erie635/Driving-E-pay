@@ -21,8 +21,10 @@ const DEFAULT_FEES: Record<string, number> = {
   'A3': 7500,
 };
 
-// Password from environment variable
-const REQUIRED_PASSWORD = process.env.NEXT_PUBLIC_SCHOOL_FEE_PASSWORD || "admin123";
+// =====================================================
+// 🔐 INTERNAL PASSWORD (hardcoded) – change as needed
+// =====================================================
+const REQUIRED_PASSWORD = "1234";
 
 export default function BranchStudentPage() {
   // --- Password protection state ---
@@ -214,191 +216,341 @@ export default function BranchStudentPage() {
   // --- Render password prompt if not authenticated ---
   if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-        <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-sm sm:w-96">
-          <img
-            src="/logopds.jpg"
-            alt="Logo"
-            className="mx-auto mb-4 w-20 h-20 sm:w-24 sm:h-24 object-contain"
-          />
-          <h2 className="text-xl sm:text-2xl text-black font-bold mb-4 text-center">
-            Admin Access To Adjust School Fee
-          </h2>
-          <form onSubmit={handlePasswordSubmit}>
-            <input
-              type="password"
-              placeholder="Enter password"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              className="w-full text-black p-2 border rounded mb-4 text-sm sm:text-base"
-              autoFocus
+      <>
+        <style>{`
+          /* Password screen responsive + small fonts */
+          .flex.items-center.justify-center.min-h-screen.bg-gray-100.p-4 {
+            min-height: 100vh;
+            background-color: #f3f4f6;
+            padding: 1rem;
+          }
+          .bg-white.p-6.sm\\:p-8.rounded-lg.shadow-md.w-full.max-w-sm.sm\\:w-96 {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 24rem;
+          }
+          .mx-auto.mb-4.w-20.h-20.sm\\:w-24.sm\\:h-24.object-contain {
+            width: 4rem;
+            height: 4rem;
+            margin-bottom: 1rem;
+          }
+          .text-xl.sm\\:text-2xl.text-black.font-bold.mb-4.text-center {
+            font-size: 1.2rem;
+            color: black;
+            margin-bottom: 0.75rem;
+          }
+          input[type="password"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+          }
+          .text-red-500.text-xs.sm\\:text-sm.mb-4 {
+            font-size: 0.7rem;
+          }
+          .bg-indigo-600.text-white.py-2.rounded.hover\\:bg-indigo-700 {
+            background-color: #4f46e5;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+          }
+          @media (min-width: 640px) {
+            .bg-white.p-6.sm\\:p-8.rounded-lg.shadow-md.w-full.max-w-sm.sm\\:w-96 {
+              padding: 1.5rem;
+            }
+            .mx-auto.mb-4.w-20.h-20.sm\\:w-24.sm\\:h-24.object-contain {
+              width: 5rem;
+              height: 5rem;
+            }
+            .text-xl.sm\\:text-2xl.text-black.font-bold.mb-4.text-center {
+              font-size: 1.5rem;
+            }
+            input[type="password"] {
+              font-size: 0.9rem;
+            }
+            .bg-indigo-600.text-white.py-2.rounded.hover\\:bg-indigo-700 {
+              font-size: 0.9rem;
+            }
+          }
+        `}</style>
+        <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+          <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-sm sm:w-96">
+            <img
+              src="/logopds.jpg"
+              alt="Logo"
+              className="mx-auto mb-4 w-20 h-20 sm:w-24 sm:h-24 object-contain"
             />
-            {passwordError && <p className="text-red-500 text-xs sm:text-sm mb-4">{passwordError}</p>}
-            <button
-              type="submit"
-              className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 text-sm sm:text-base"
-            >
-              Unlock
-            </button>
-          </form>
+            <h2 className="text-xl sm:text-2xl text-black font-bold mb-4 text-center">
+              Admin Access To Adjust School Fee
+            </h2>
+            <form onSubmit={handlePasswordSubmit}>
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full text-black p-2 border rounded mb-4 text-sm sm:text-base"
+                autoFocus
+              />
+              {passwordError && <p className="text-red-500 text-xs sm:text-sm mb-4">{passwordError}</p>}
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 text-sm sm:text-base"
+              >
+                Unlock
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  // --- Authenticated view: fully responsive with reduced font sizes (Tailwind) ---
+  // --- Authenticated view with embedded CSS overrides for responsive + small fonts ---
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto text-sm sm:text-base">
-      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Add Student</h1>
+    <>
+      <style>{`
+        /* Override Tailwind classes for the entire component */
+        .p-4.sm\\:p-6.max-w-6xl.mx-auto.text-sm.sm\\:text-base {
+          padding: 0.75rem !important;
+          max-width: 72rem;
+          margin-left: auto;
+          margin-right: auto;
+          font-size: 0.75rem !important;
+        }
+        @media (min-width: 640px) {
+          .p-4.sm\\:p-6.max-w-6xl.mx-auto.text-sm.sm\\:text-base {
+            padding: 1rem !important;
+            font-size: 0.85rem !important;
+          }
+        }
 
-      {/* Fee Management Section */}
-      <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-        <h3 className="text-base sm:text-lg font-semibold mb-3">Manage Class Fees (Market Prices)</h3>
-        <div className="flex flex-wrap gap-3 sm:gap-4">
-          {classOptions.map(cls => (
-            <div key={cls} className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm sm:text-base">{cls}:</span>
-              {editingFee === cls ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    className="w-24 p-1 border rounded text-sm"
-                    autoFocus
-                  />
-                  <button onClick={() => saveFee(cls)} className="px-2 py-1 bg-green-600 text-white rounded text-xs">Save</button>
-                  <button onClick={() => setEditingFee(null)} className="px-2 py-1 bg-red-600 text-white rounded text-xs">Cancel</button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span>Ksh {fees[cls]}</span>
-                  <button onClick={() => startEditFee(cls)} className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Edit</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500 mt-2">* Changes will apply to new students. Existing students' fees remain unchanged.</p>
-      </div>
+        /* Title */
+        .text-xl.sm\\:text-2xl.font-bold.mb-4.sm\\:mb-6 {
+          font-size: 1.2rem !important;
+          margin-bottom: 0.75rem !important;
+        }
+        @media (min-width: 640px) {
+          .text-xl.sm\\:text-2xl.font-bold.mb-4.sm\\:mb-6 {
+            font-size: 1.4rem !important;
+            margin-bottom: 1rem !important;
+          }
+        }
 
-      {/* Branch Selector */}
-      <div className="mb-4">
-        <label className="block text-gray-700 text-sm sm:text-base mb-1">Select Branch:</label>
-        <select
-          value={selectedBranchId}
-          onChange={(e) => setSelectedBranchId(e.target.value)}
-          className="w-full max-w-md p-2 border rounded text-sm sm:text-base"
-        >
-          <option value="">-- Select Branch --</option>
-          {branches.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {branch.name || branch.id}
-            </option>
-          ))}
-        </select>
-      </div>
+        /* Fee management section */
+        .mb-6.p-4.border.rounded-lg.bg-gray-50 {
+          padding: 0.75rem !important;
+        }
+        .text-base.sm\\:text-lg.font-semibold.mb-3 {
+          font-size: 0.9rem !important;
+        }
+        .flex.flex-wrap.gap-3.sm\\:gap-4 > div {
+          font-size: 0.7rem !important;
+        }
+        input[type="number"] {
+          font-size: 0.7rem !important;
+          padding: 0.2rem 0.4rem !important;
+        }
+        button.px-2.py-1 {
+          font-size: 0.65rem !important;
+          padding: 0.2rem 0.5rem !important;
+        }
+        .text-xs.text-gray-500.mt-2 {
+          font-size: 0.6rem !important;
+        }
 
-      {/* Form */}
-      <form onSubmit={addStudent} className="space-y-3 max-w-md">
-        <input
-          type="text"
-          placeholder="Student Name"
-          value={studentName}
-          onChange={(e) => setStudentName(e.target.value)}
-          className="w-full p-2 border rounded text-sm sm:text-base"
-        />
-        <input
-          type="email"
-          placeholder="Student Email"
-          value={studentEmail}
-          onChange={(e) => setStudentEmail(e.target.value)}
-          className="w-full p-2 border rounded text-sm sm:text-base"
-        />
-        <input
-          type="tel"
-          placeholder="Phone Number"
-          value={studentPhone}
-          onChange={(e) => setStudentPhone(e.target.value)}
-          className="w-full p-2 border rounded text-sm sm:text-base"
-        />
-        <input
-          type="text"
-          placeholder="ID Number"
-          value={idNumber}
-          onChange={(e) => setIdNumber(e.target.value)}
-          className="w-full p-2 border rounded text-sm sm:text-base"
-        />
-        <input
-          type="number"
-          placeholder="Fee Paid (Ksh)"
-          value={feePaid}
-          onChange={(e) => setFeePaid(e.target.value)}
-          className="w-full p-2 border rounded text-sm sm:text-base"
-        />
+        /* Branch selector */
+        .mb-4 select {
+          font-size: 0.7rem !important;
+          padding: 0.3rem !important;
+        }
 
-        {/* Class selection with dynamic fee display */}
-        <div className="mt-2">
-          <label className="block text-gray-700 text-sm sm:text-base mb-1">Classes Enrolled:</label>
-          <div className="flex flex-wrap gap-3">
+        /* Form inputs */
+        .space-y-3 input, .space-y-3 select {
+          font-size: 0.7rem !important;
+          padding: 0.3rem 0.5rem !important;
+        }
+        .space-y-3 button {
+          font-size: 0.75rem !important;
+          padding: 0.4rem !important;
+        }
+
+        /* Class checkboxes */
+        .flex.flex-wrap.gap-3 label {
+          font-size: 0.7rem !important;
+        }
+        .text-sm.font-bold.text-green-700.mt-2 {
+          font-size: 0.7rem !important;
+        }
+
+        /* Students list container */
+        .space-y-3.max-h-\\[500px\\].overflow-y-auto > div {
+          padding: 0.5rem !important;
+          font-size: 0.65rem !important;
+        }
+        @media (min-width: 640px) {
+          .space-y-3.max-h-\\[500px\\].overflow-y-auto > div {
+            padding: 0.75rem !important;
+            font-size: 0.75rem !important;
+          }
+        }
+      `}</style>
+
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto text-sm sm:text-base">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Add Student</h1>
+
+        {/* Fee Management Section */}
+        <div className="mb-6 p-4 border rounded-lg bg-gray-50">
+          <h3 className="text-base sm:text-lg font-semibold mb-3">Manage Class Fees (Market Prices)</h3>
+          <div className="flex flex-wrap gap-3 sm:gap-4">
             {classOptions.map(cls => (
-              <label key={cls} className="flex items-center gap-1 text-sm sm:text-base">
-                <input
-                  type="checkbox"
-                  value={cls}
-                  checked={selectedClasses.includes(cls)}
-                  onChange={() => toggleClass(cls)}
-                  className="mr-1"
-                />
-                {cls} (Ksh {fees[cls]})
-              </label>
+              <div key={cls} className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-sm sm:text-base">{cls}:</span>
+                {editingFee === cls ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      className="w-24 p-1 border rounded text-sm"
+                      autoFocus
+                    />
+                    <button onClick={() => saveFee(cls)} className="px-2 py-1 bg-green-600 text-white rounded text-xs">Save</button>
+                    <button onClick={() => setEditingFee(null)} className="px-2 py-1 bg-red-600 text-white rounded text-xs">Cancel</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span>Ksh {fees[cls]}</span>
+                    <button onClick={() => startEditFee(cls)} className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Edit</button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
-          {selectedClasses.length > 0 && (
-            <p className="text-sm font-bold text-green-700 mt-2">
-              Total Fee: Ksh {computeTotalFee(selectedClasses)}
-            </p>
-          )}
+          <p className="text-xs text-gray-500 mt-2">* Changes will apply to new students. Existing students' fees remain unchanged.</p>
         </div>
 
-        <button type="submit" disabled={loading} className="w-full bg-green-700 hover:bg-green-800 text-white py-2 rounded text-sm sm:text-base disabled:opacity-50">
-          {loading ? 'Adding...' : 'Add Student'}
-        </button>
-      </form>
+        {/* Branch Selector */}
+        <div className="mb-4">
+          <label className="block text-gray-700 text-sm sm:text-base mb-1">Select Branch:</label>
+          <select
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
+            className="w-full max-w-md p-2 border rounded text-sm sm:text-base"
+          >
+            <option value="">-- Select Branch --</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name || branch.id}
+              </option>
+            ))}
+          </select>
+        </div> 
 
-      {/* Students List */}
-      {selectedBranchId && (
-        <div className="mt-8">
-          <h2 className="text-lg sm:text-xl font-semibold mb-3">Students</h2>
-          {students.length === 0 ? (
-            <p className="text-gray-500 text-sm">No students found</p>
-          ) : (
-            <div className="space-y-3 max-h-[500px] overflow-y-auto">
-              {students.map((student) => {
-                const totalFee = student.totalFee || 0;
-                const paid = student.feePaid || 0;
-                const balance = totalFee - paid;
-                const classList = student.classes?.join(', ') || 'None';
-                return (
-                  <div key={student.id} className="border p-3 sm:p-4 rounded shadow-sm text-sm sm:text-base">
-                    <p><strong>Admission No:</strong> {student.accountNumber || student.studentAccountId}</p>
-                    <p><strong>Name:</strong> {student.name}</p>
-                    <p><strong>Email:</strong> {student.email}</p>
-                    <p><strong>Phone:</strong> {student.phone}</p>
-                    <p><strong>ID Number:</strong> {student.idNumber}</p>
-                    <p><strong>Class(es):</strong> {classList}</p>
-                    <p><strong>Total Fee:</strong> Ksh {totalFee}</p>
-                    <p><strong>Amount Paid:</strong> Ksh {paid}</p>
-                    <p className={`font-bold ${balance <= 0 ? 'text-green-600' : 'text-orange-500'}`}>
-                      <strong>Balance:</strong> Ksh {balance > 0 ? balance : 0}
-                    </p>
-                  </div>
-                );
-              })}
+        {/* Form */}
+        <form onSubmit={addStudent} className="space-y-3 max-w-md">
+          <input
+            type="text"
+            placeholder="Student Name"
+            value={studentName}
+            onChange={(e) => setStudentName(e.target.value)}
+            className="w-full p-2 border rounded text-sm sm:text-base"
+          />
+          <input
+            type="email"
+            placeholder="Student Email"
+            value={studentEmail}
+            onChange={(e) => setStudentEmail(e.target.value)}
+            className="w-full p-2 border rounded text-sm sm:text-base"
+          />
+          <input
+            type="tel"
+            placeholder="Phone Number"
+            value={studentPhone}
+            onChange={(e) => setStudentPhone(e.target.value)}
+            className="w-full p-2 border rounded text-sm sm:text-base"
+          />
+          <input
+            type="text"
+            placeholder="ID Number"
+            value={idNumber}
+            onChange={(e) => setIdNumber(e.target.value)}
+            className="w-full p-2 border rounded text-sm sm:text-base"
+          />
+          <input
+            type="number"
+            placeholder="Fee Paid (Ksh)"
+            value={feePaid}
+            onChange={(e) => setFeePaid(e.target.value)}
+            className="w-full p-2 border rounded text-sm sm:text-base"
+          />
+
+          {/* Class selection with dynamic fee display */}
+          <div className="mt-2">
+            <label className="block text-gray-700 text-sm sm:text-base mb-1">Classes Enrolled:</label>
+            <div className="flex flex-wrap gap-3">
+              {classOptions.map(cls => (
+                <label key={cls} className="flex items-center gap-1 text-sm sm:text-base">
+                  <input
+                    type="checkbox"
+                    value={cls}
+                    checked={selectedClasses.includes(cls)}
+                    onChange={() => toggleClass(cls)}
+                    className="mr-1"
+                  />
+                  {cls} (Ksh {fees[cls]})
+                </label>
+              ))}
             </div>
-          )}
-        </div>
-      )}
-    </div>
+            {selectedClasses.length > 0 && (
+              <p className="text-sm font-bold text-green-700 mt-2">
+                Total Fee: Ksh {computeTotalFee(selectedClasses)}
+              </p>
+            )}
+          </div>
+
+          <button type="submit" disabled={loading} className="w-full bg-green-700 hover:bg-green-800 text-white py-2 rounded text-sm sm:text-base disabled:opacity-50">
+            {loading ? 'Adding...' : 'Add Student'}
+          </button>
+        </form>
+
+        {/* Students List */}
+        {selectedBranchId && (
+          <div className="mt-8">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3">Students</h2>
+            {students.length === 0 ? (
+              <p className="text-gray-500 text-sm">No students found</p>
+            ) : (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                {students.map((student) => {
+                  const totalFee = student.totalFee || 0;
+                  const paid = student.feePaid || 0;
+                  const balance = totalFee - paid;
+                  const classList = student.classes?.join(', ') || 'None';
+                  return (
+                    <div key={student.id} className="border p-3 sm:p-4 rounded shadow-sm text-sm sm:text-base">
+                      <p><strong>Admission No:</strong> {student.accountNumber || student.studentAccountId}</p>
+                      <p><strong>Name:</strong> {student.name}</p>
+                      <p><strong>Email:</strong> {student.email}</p>
+                      <p><strong>Phone:</strong> {student.phone}</p>
+                      <p><strong>ID Number:</strong> {student.idNumber}</p>
+                      <p><strong>Class(es):</strong> {classList}</p>
+                      <p><strong>Total Fee:</strong> Ksh {totalFee}</p>
+                      <p><strong>Amount Paid:</strong> Ksh {paid}</p>
+                      <p className={`font-bold ${balance <= 0 ? 'text-green-600' : 'text-orange-500'}`}>
+                        <strong>Balance:</strong> Ksh {balance > 0 ? balance : 0}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

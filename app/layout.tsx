@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Driving School ESystem',
+  title: 'Driving School E-Pay',
   description: 'Payment and Lesson Management for Driving Schools',
 };
 

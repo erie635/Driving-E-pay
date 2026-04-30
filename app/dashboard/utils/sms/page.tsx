@@ -48,40 +48,39 @@ export default function SmsPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold text-white mb-6">Send SMS</h1>
+      <h1 className="text-2xl font-bold text-black mb-6">Send SMS</h1>
 
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 space-y-4">
+      <div className="bg-black/5 backdrop-blur-sm rounded-xl p-6 space-y-4 border border-black/10">
         <div>
-          {/* 🔁 Changed: Label text and helper text updated for Africa's Talking */}
-          <label className="block text-white/80 text-sm mb-2">From (Sender ID)</label>
+          <label className="block text-black/80 text-sm mb-2">From (Sender ID)</label>
           <input
             type="text"
             value={senderId}
             readOnly
-            className="w-full px-4 py-2 rounded-lg bg-white/20 border border-white/30 text-white cursor-not-allowed"
+            className="w-full px-4 py-2 rounded-lg bg-black/5 border border-black/20 text-black cursor-not-allowed"
           />
-          <p className="text-white/50 text-xs mt-1">Your Africa's Talking Sender ID – cannot be changed here.</p>
+          <p className="text-black/50 text-xs mt-1">Your Africa's Talking Sender ID – cannot be changed here.</p>
         </div>
 
         <div>
-          <label className="block text-white/80 text-sm mb-2">To (Recipients)</label>
+          <label className="block text-black/80 text-sm mb-2">To (Recipients)</label>
           <textarea
             rows={4}
             value={phoneNumbers}
             onChange={e => setPhoneNumbers(e.target.value)}
             placeholder="Enter phone numbers, one per line or comma separated&#10;Example:&#10;+1234567890&#10;+9876543210"
-            className="w-full px-4 py-2 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+            className="w-full px-4 py-2 rounded-lg bg-white border border-black/20 text-black placeholder-black/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label className="block text-white/80 text-sm mb-2">Message</label>
+          <label className="block text-black/80 text-sm mb-2">Message</label>
           <textarea
             rows={4}
             value={message}
             onChange={e => setMessage(e.target.value)}
             placeholder="Type your message here..."
-            className="w-full px-4 py-2 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+            className="w-full px-4 py-2 rounded-lg bg-white border border-black/20 text-black placeholder-black/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -94,11 +93,11 @@ export default function SmsPage() {
         </button>
 
         {result && (
-          <div className="mt-4 p-3 rounded-lg bg-white/10 border border-white/20 text-white">
+          <div className="mt-4 p-3 rounded-lg bg-black/5 border border-black/10 text-black">
             {result}
           </div>
         )}
       </div>
     </div>
   );
-}// force rebuild
+}

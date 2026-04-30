@@ -12,17 +12,23 @@ import {
   setDoc,
 } from "firebase/firestore";
 
-// Default fallback fees (used only if no document exists)
+// Default fallback fees (includes BC1)
 const DEFAULT_FEES: Record<string, number> = {
   "B1/B2": 15000,
-  C1: 18500,
+  "C1": 14500,   // ✅ Correct value
+  BC1: 18500,
   A1: 7500,
   A2: 7500,
   A3: 7500,
 };
 
-// Password from environment variable
-const REQUIRED_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123";
+// Allowed class options (must match DEFAULT_FEES keys)
+const CLASS_OPTIONS = ["B1/B2", "BC1", "C1", "A1", "A2", "A3"];
+
+// =====================================================
+// 🔐 INTERNAL PASSWORD (hardcoded) – change as needed
+// =====================================================
+const REQUIRED_PASSWORD = "1234";
 
 export default function BranchStudentPage() {
   // --- Password protection state ---
@@ -49,8 +55,6 @@ export default function BranchStudentPage() {
   const [editingFee, setEditingFee] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
 
-  const classOptions = ["B1/B2", "C1", "A1", "A2", "A3"];
-
   // --- Password handler ---
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,15 +66,47 @@ export default function BranchStudentPage() {
     }
   };
 
-  // ✅ Fetch fees from Firestore (real‑time)
+  // ✅ Fetch fees from Firestore and ensure all class options exist
+  //    Added explicit if/else to guarantee BC1=18500 and C1=14500
   useEffect(() => {
     const feesDocRef = doc(db, "settings", "classFees");
-    const unsubscribe = onSnapshot(feesDocRef, (docSnap) => {
+    const unsubscribe = onSnapshot(feesDocRef, async (docSnap) => {
+      let finalFees: Record<string, number>;
+
       if (docSnap.exists()) {
-        setFees(docSnap.data() as Record<string, number>);
+        const existingFees = docSnap.data() as Record<string, number>;
+        // Merge with DEFAULT_FEES to include any missing classes
+        const mergedFees = { ...DEFAULT_FEES, ...existingFees };
+        
+        // ---- START: Force correct values for BC1 and C1 ----
+        if (mergedFees["BC1"] !== 18500) {
+          mergedFees["BC1"] = 18500;
+        }
+        if (mergedFees["C1"] !== 14500) {
+          mergedFees["C1"] = 14500;
+        }
+        // ---- END ----
+        
+        setFees(mergedFees);
+        finalFees = mergedFees;
+
+        // If any class was missing or BC1/C1 were wrong, persist the corrections
+        let needsUpdate = false;
+        for (const cls of CLASS_OPTIONS) {
+          if (!(cls in existingFees)) {
+            needsUpdate = true;
+            break;
+          }
+        }
+        if (mergedFees["BC1"] !== existingFees["BC1"] || mergedFees["C1"] !== existingFees["C1"]) {
+          needsUpdate = true;
+        }
+        if (needsUpdate) {
+          await setDoc(feesDocRef, finalFees);
+        }
       } else {
-        // Create default fees document if it doesn't exist
-        setDoc(feesDocRef, DEFAULT_FEES).catch(console.error);
+        // Document doesn't exist – create it with all default fees
+        await setDoc(feesDocRef, DEFAULT_FEES);
         setFees(DEFAULT_FEES);
       }
     });
@@ -222,7 +258,7 @@ export default function BranchStudentPage() {
       alert("Failed to update fee in database");
     }
   };
-  
+
   // --- Render password prompt if not authenticated ---
   if (!isAuthenticated) {
     return (
@@ -260,10 +296,10 @@ export default function BranchStudentPage() {
     );
   }
 
-  // --- Authenticated view: original content with responsive overrides ---
+  // --- Authenticated view ---
   return (
     <>
-      {/* Responsive styles – only adds media queries, does not change your existing styles */}
+      {/* Responsive styles – unchanged */}
       <style>{`
         @media (max-width: 640px) {
           .responsive-container {
@@ -297,15 +333,59 @@ export default function BranchStudentPage() {
         }
       `}</style>
 
+      {/* Metallic blood red silk + particles styles – unchanged */}
+      <style>{`
+        @keyframes silkShimmer {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes floatParticles {
+          0% { transform: translateY(0px) translateX(0px); opacity: 0.4; }
+          100% { transform: translateY(-20px) translateX(10px); opacity: 0.1; }
+        }
+        .fee-management-container {
+          position: relative;
+          overflow: hidden;
+          margin-bottom: 25px;
+          padding: 15px;
+          border: 1px solid #eee;
+          border-radius: 8px;
+          background: linear-gradient(135deg, 
+            #8B1A2A 0%, 
+            #A31F34 30%, 
+            #C02845 50%, 
+            #A31F34 70%, 
+            #7A1525 100%);
+          background-size: 200% 200%;
+          animation: silkShimmer 6s ease infinite;
+          color: #fff;
+        }
+        .fee-management-container::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-image: radial-gradient(circle at 20% 40%, rgba(255,215,180,0.2) 1.5px, transparent 1.5px),
+                            radial-gradient(circle at 80% 70%, rgba(255,240,200,0.15) 1px, transparent 1px);
+          background-size: 40px 40px, 30px 30px;
+          background-repeat: repeat;
+          pointer-events: none;
+          animation: floatParticles 8s linear infinite;
+        }
+      `}</style>
+
       <div style={{ fontSize: "0.8rem" }}>
         <div style={styles.container} className="responsive-container">
           <h1 style={styles.title} className="responsive-title">Add Student</h1>
 
           {/* Fee Management Section */}
-          <div style={styles.feeManagement}>
+          <div className="fee-management-container">
             <h3 style={styles.subtitle}>Manage Class Fees (Market Prices)</h3>
             <div style={styles.feeGrid} className="responsive-fee-grid">
-              {classOptions.map((cls) => (
+              {CLASS_OPTIONS.map((cls) => (
                 <div key={cls} style={styles.feeItem} className="responsive-fee-item">
                   <span style={styles.feeLabel}>{cls}:</span>
                   {editingFee === cls ? (
@@ -405,11 +485,11 @@ export default function BranchStudentPage() {
               style={styles.input}
             />
 
-            {/* Class selection with dynamic fee display */}
+            {/* Class selection */}
             <div style={styles.classContainer}>
               <label style={styles.label}>Classes Enrolled:</label>
               <div style={styles.checkboxGroup} className="responsive-checkbox-group">
-                {classOptions.map((cls) => (
+                {CLASS_OPTIONS.map((cls) => (
                   <label key={cls} style={styles.checkboxLabel}>
                     <input
                       type="checkbox"
@@ -493,21 +573,20 @@ export default function BranchStudentPage() {
   );
 }
 
-// Your original styles (unchanged)
+// Styles – unchanged
 const styles: { [key: string]: React.CSSProperties } = {
-  container: { padding: "20px" },
-  title: { fontSize: "22px", marginBottom: "15px" },
-  selectContainer: { marginBottom: "20px"},
-  label: { display: "block", marginBottom: "5px" },
+  container: { padding: "20px", color: "#000" },
+  title: { fontSize: "20px", marginBottom: "15px", color: "#1A0000" },
+  selectContainer: { marginBottom: "20px" },
+  label: { display: "block", marginBottom: "5px", color: "#000" },
   select: {
     padding: "10px",
     borderRadius: "5px",
     border: "1px solid #ccc",
     width: "100%",
     maxWidth: "300px",
-    backgroundColor: "#7d7878",
-    color: "000",
-   
+    backgroundColor: "#868686",
+    color: "#fff",
   },
   form: {
     display: "flex",
@@ -515,17 +594,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: "10px",
     maxWidth: "400px",
   },
-  input: { padding: "10px", borderRadius: "5px", border: "1px solid #ccc" },
+  input: { padding: "10px", borderRadius: "5px", border: "1px solid #808080", color: "#000" },
   button: {
     padding: "10px",
-    backgroundColor: "#0a7",
-    color: "#fff ",
+    backgroundColor: "#0a7dff",
+    color: "#fff",
     border: "none",
     borderRadius: "5px",
     cursor: "pointer",
   },
-  listContainer: { marginTop: "30px" },
-  subtitle: { fontSize: "18px", marginBottom: "10px" },
+  listContainer: { marginTop: "20px" },
+  subtitle: { fontSize: "15px", marginBottom: "5px", color: "#1A0000" },
   card: {
     padding: "10px",
     border: "1px solid #ddd",
@@ -545,20 +624,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     gap: "5px",
     fontSize: "14px",
+    color: "#1A0000",
   },
   checkbox: { margin: 0 },
   totalFeeHint: {
     marginTop: "8px",
     fontSize: "13px",
     fontWeight: "bold",
-    color: "#0a7",
-  },
-  feeManagement: {
-    marginBottom: "25px",
-    padding: "15px",
-    border: "1px solid #eee",
-    borderRadius: "8px",
-    backgroundColor: "#808067",
+    color: "#000",
   },
   feeGrid: {
     display: "flex",
@@ -572,19 +645,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: "10px",
     flexWrap: "wrap",
   },
-  feeLabel: { fontWeight: "bold", minWidth: "50px" },
-  feeDisplay: { display: "flex", alignItems: "center", gap: "8px" },
+  feeLabel: { fontWeight: "bold", minWidth: "20px", color: "#fff" },
+  feeDisplay: { display: "flex", alignItems: "center", gap: "8px", color: "#fff" },
   feeEdit: { display: "flex", alignItems: "center", gap: "5px" },
   feeInput: {
     width: "100px",
     padding: "4px",
     borderRadius: "4px",
     border: "1px solid #ccc",
+    color: "#000",
+    backgroundColor: "#fff",
   },
   feeEditBtn: {
     padding: "2px 8px",
     backgroundColor: "#2196F3",
-    color: "#000",
+    color: "#fff",
     border: "none",
     borderRadius: "4px",
     cursor: "pointer",
@@ -601,12 +676,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   feeCancelBtn: {
     padding: "2px 8px",
-    backgroundColor: "#f44336",
+    backgroundColor: "#808080",
     color: "#fff",
     border: "none",
     borderRadius: "4px",
     cursor: "pointer",
     fontSize: "12px",
   },
-  feeNote: { fontSize: "12px", color: "#666", marginTop: "10px" },
+  feeNote: { fontSize: "12px", color: "#fff", marginTop: "10px" },
 };
