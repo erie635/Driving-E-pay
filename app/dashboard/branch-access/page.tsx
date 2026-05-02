@@ -1029,7 +1029,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
                 <td style="text-align: right;"><strong>Ksh ${studentsWithBalance.reduce((sum, s) => sum + (s.totalFee || 0), 0).toLocaleString()}</strong></td>
                 <td style="text-align: right;"><strong>Ksh ${studentsWithBalance.reduce((sum, s) => sum + s.feePaid, 0).toLocaleString()}</strong></td>
                 <td style="text-align: right;"><strong>Ksh ${totalOutstanding.toLocaleString()}</strong></td>
-              </tr>
+              <tr>
             </tfoot>
           </table>
           <hr/><p style="text-align: center;">This report lists all students with unpaid fees. Please follow up for collection.</p>
@@ -1682,7 +1682,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
                           Exam Date (if approved)
                         </th>
                         <th className="px-4 py-2 border">Note</th>
-                      </td>
+                      </tr>
                     </thead>
                     <tbody>
                       {allExamRequests.map((req) => (
@@ -1758,7 +1758,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
                 className="w-full border rounded p-2 text-sm"
                 required
               >
-                  <option value="">Select class...</option>
+                <option value="">Select class...</option>
                 <option value="B1">B1/B2 (Light Vehicle)</option>
                 <option value="B2">B1 (Light Vehicle Auto)</option>
                 <option value="C1">C1 (Light Truck)</option>
