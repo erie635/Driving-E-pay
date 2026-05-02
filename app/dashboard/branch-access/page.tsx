@@ -1761,12 +1761,12 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
                 required
               >
                 <option value="">Select class...</option>
-                <option value="B1">B1/B2 (Light Vehicle)</option>
-                <option value="B2">B1 (Light Vehicle Auto)</option>
+                <option value="B2">B1/B2 (Light Vehicle)</option>
+                <option value="B1">B1 (Light Vehicle Auto)</option>
                 <option value="C1">C1 (Light Truck)</option>
                 <option value="C">BC1 (Truck)</option>
                 <option value="D1">D1 (PSV)</option>
-                <option value="D">A1 (Motorcycle)</option>
+                <option value="A1">A1 (Motorcycle)</option>
                 <option value="A">A2 (Motorcycle)</option>
               </select>
             </div>

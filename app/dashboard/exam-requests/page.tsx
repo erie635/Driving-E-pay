@@ -435,8 +435,8 @@ export default function AdminExamRequests() {
                 <option value="C1">C1 (Light Truck)</option>
                 <option value="C">C (Truck)</option>
                 <option value="D1">D1 (PSV)</option>
-                <option value="D">A1 (Motorcycle)</option>
-                <option value="A">A2 (Motorcycle)</option>
+                <option value="A1">A1 (Motorcycle)</option>
+                <option value="A2">A2 (Motorcycle)</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">You can override the requested class if needed.</p>
             </div>
