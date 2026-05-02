@@ -15,7 +15,10 @@ import {
 // Default fallback fees (used only if no document exists)
 const DEFAULT_FEES: Record<string, number> = {
   'B1/B2': 15000,
-  'C1': 18500,
+  'B1': 15000,
+  'BC1': 18500,
+  'C1': 14500,
+  'D1': 11000,
   'A1': 7500,
   'A2': 7500,
   'A3': 7500,

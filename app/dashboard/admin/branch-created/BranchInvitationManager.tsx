@@ -16,14 +16,17 @@ interface BranchInvitationManagerProps {
 
 const DEFAULT_CLASS_FEES: Record<string, number> = {
   "B1/B2": 15000,
-  C1: 18500,
-  A1: 7500,
-  A2: 7500,
-  A3: 7500,
+   "B1": 15000,
+   "BC1": 18500,
+  "C1": 14500,
+  "D1": 11000,
+  "A1": 7500,
+  "A2": 7500,
+  "A3": 7500,
 };
 
 // Hardcoded admin password (no .env)
-const REQUIRED_PASSWORD = "admin123";
+const REQUIRED_PASSWORD = "1234";
 
 export default function BranchInvitationManager({
   branches: propBranches,
