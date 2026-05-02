@@ -110,10 +110,11 @@ function BranchAccessContent() {
   // Modal visibility for exam requests list
   const [showRequestsModal, setShowRequestsModal] = useState(false);
 
-  // ========== NEW: Report preview modal state ==========
+  // Report preview modal state
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportHTML, setReportHTML] = useState("");
 
+  // Date range state
   const getLocalToday = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -121,14 +122,15 @@ function BranchAccessContent() {
     const day = String(today.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
-  const [selectedDate, setSelectedDate] = useState(getLocalToday());
-  const [dailyTotal, setDailyTotal] = useState(0);
-  const [weeklyTotal, setWeeklyTotal] = useState(0);
-  const [yearlyTotal, setYearlyTotal] = useState(0);
-
-  const [dailyBalance, setDailyBalance] = useState(0);
-  const [weeklyBalance, setWeeklyBalance] = useState(0);
-  const [yearlyBalance, setYearlyBalance] = useState(0);
+  const [rangeStartDate, setRangeStartDate] = useState(() => {
+    const firstDayOfMonth = new Date();
+    firstDayOfMonth.setDate(1);
+    return firstDayOfMonth.toISOString().split("T")[0];
+  });
+  const [rangeEndDate, setRangeEndDate] = useState(getLocalToday);
+  const [rangeTotalPayments, setRangeTotalPayments] = useState(0);
+  const [rangeEndBalance, setRangeEndBalance] = useState(0);
+  const [rangeLessonsCount, setRangeLessonsCount] = useState(0); // NEW
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -169,10 +171,10 @@ function BranchAccessContent() {
       const q = query(
         collection(db, "examRequests"),
         where("branchId", "==", branch.id),
-        orderBy("createdAt", "desc")
+        orderBy("createdAt", "desc"),
       );
       const snapshot = await getDocs(q);
-      const requests: ExamRequest[] = snapshot.docs.map(doc => ({
+      const requests: ExamRequest[] = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         createdAt: toDate(doc.data().createdAt) || new Date(),
@@ -187,79 +189,83 @@ function BranchAccessContent() {
     }
   };
 
-  // REAL-TIME STUDENT LISTENER
+  // REAL-TIME STUDENT LISTENER (unchanged)
   useEffect(() => {
     if (!branch?.id) return;
 
     const studentsRef = collection(db, "branches", branch.id, "students");
-    const unsubscribeStudents = onSnapshot(studentsRef, async (snapshot) => {
-      const studentsList: Student[] = [];
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        const studentId = docSnap.id;
+    const unsubscribeStudents = onSnapshot(
+      studentsRef,
+      async (snapshot) => {
+        const studentsList: Student[] = [];
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+          const studentId = docSnap.id;
 
-        const paymentsRef = collection(
-          db,
-          "branches",
-          branch.id,
-          "students",
-          studentId,
-          "payments"
-        );
-        const paymentsSnapshot = await getDocs(
-          query(paymentsRef, orderBy("date", "desc"))
-        );
-        const payments: Payment[] = paymentsSnapshot.docs.map((p) => {
-          const pData = p.data();
-          return {
-            id: p.id,
-            amount: pData.amount,
-            date: toDate(pData.date) || new Date(),
-            note: pData.note,
-            method: pData.method,
-            reference: pData.reference,
-          };
-        });
+          const paymentsRef = collection(
+            db,
+            "branches",
+            branch.id,
+            "students",
+            studentId,
+            "payments",
+          );
+          const paymentsSnapshot = await getDocs(
+            query(paymentsRef, orderBy("date", "desc")),
+          );
+          const payments: Payment[] = paymentsSnapshot.docs.map((p) => {
+            const pData = p.data();
+            return {
+              id: p.id,
+              amount: pData.amount,
+              date: toDate(pData.date) || new Date(),
+              note: pData.note,
+              method: pData.method,
+              reference: pData.reference,
+            };
+          });
 
-        const lessonsRef = collection(
-          db,
-          "branches",
-          branch.id,
-          "students",
-          studentId,
-          "lessons"
-        );
-        const lessonsSnapshot = await getDocs(
-          query(lessonsRef, orderBy("date", "desc"))
-        );
-        const lessons: Lesson[] = lessonsSnapshot.docs.map((l) => {
-          const lData = l.data();
-          return {
-            id: l.id,
-            date: toDate(lData.date) || new Date(),
-            type: lData.type,
-          };
-        });
+          const lessonsRef = collection(
+            db,
+            "branches",
+            branch.id,
+            "students",
+            studentId,
+            "lessons",
+          );
+          const lessonsSnapshot = await getDocs(
+            query(lessonsRef, orderBy("date", "desc")),
+          );
+          const lessons: Lesson[] = lessonsSnapshot.docs.map((l) => {
+            const lData = l.data();
+            return {
+              id: l.id,
+              date: toDate(lData.date) || new Date(),
+              type: lData.type,
+            };
+          });
 
-        studentsList.push({
-          id: studentId,
-          name: data.name || "No name",
-          feePaid: Number(data.feePaid) || 0,
-          totalFee: data.totalFee || 0,
-          phone: data.phone || "",
-          accountNumber: data.accountNumber || data.studentAccountId || "N/A",
-          classes: data.classes || [],
-          idNumber: data.idNumber || "",
-          payments,
-          lessons,
-          createdAt: toDate(data.createdAt) || undefined,
-        });
-      }
-      setStudents(studentsList);
-    }, (err) => {
-      console.error("Real-time student listener error:", err);
-      setError("Failed to load students in real-time.");
-    });
+          studentsList.push({
+            id: studentId,
+            name: data.name || "No name",
+            feePaid: Number(data.feePaid) || 0,
+            totalFee: data.totalFee || 0,
+            phone: data.phone || "",
+            accountNumber: data.accountNumber || data.studentAccountId || "N/A",
+            classes: data.classes || [],
+            idNumber: data.idNumber || "",
+            payments,
+            lessons,
+            createdAt: toDate(data.createdAt) || undefined,
+          });
+        }
+        setStudents(studentsList);
+      },
+      (err) => {
+        console.error("Real-time student listener error:", err);
+        setError("Failed to load students in real-time.");
+      },
+    );
 
     return () => unsubscribeStudents();
   }, [branch?.id]);
@@ -306,7 +312,7 @@ function BranchAccessContent() {
         const data = await res.json();
         if (data.branches && branch?.id) {
           setAvailableBranches(
-            data.branches.filter((b: any) => b.id !== branch.id)
+            data.branches.filter((b: any) => b.id !== branch.id),
           );
         }
       } catch (err) {
@@ -316,105 +322,56 @@ function BranchAccessContent() {
     if (showTransferModal) fetchBranches();
   }, [showTransferModal, branch?.id]);
 
-  // Revenue balances
+  // ========== UPDATED: Range totals (payments, balance, lessons) ==========
   useEffect(() => {
-    if (!selectedDate) {
-      setDailyTotal(0);
-      setWeeklyTotal(0);
-      setYearlyTotal(0);
+    if (!rangeStartDate || !rangeEndDate) {
+      setRangeTotalPayments(0);
+      setRangeEndBalance(0);
+      setRangeLessonsCount(0);
       return;
     }
 
-    const referenceDate = new Date(selectedDate);
-    if (isNaN(referenceDate.getTime())) return;
+    const start = new Date(rangeStartDate);
+    const end = new Date(rangeEndDate);
+    end.setHours(23, 59, 59, 999);
 
-    const dailyTarget = selectedDate;
-    const startOfWeek = new Date(referenceDate);
-    startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-    const targetYear = referenceDate.getFullYear();
+    let totalPayments = 0;
+    let totalOutstanding = 0;
+    let lessonsCount = 0;
 
-    let daily = 0,
-      weekly = 0,
-      yearly = 0;
     students.forEach((student) => {
-      student.payments?.forEach((payment) => {
-        const paymentDate = payment.date;
-        const localDateStr = paymentDate.toLocaleDateString("en-CA");
-        if (localDateStr === dailyTarget) daily += payment.amount;
-        if (paymentDate >= startOfWeek && paymentDate <= endOfWeek)
-          weekly += payment.amount;
-        if (paymentDate.getFullYear() === targetYear) yearly += payment.amount;
-      });
-    });
-    setDailyTotal(daily);
-    setWeeklyTotal(weekly);
-    setYearlyTotal(yearly);
-  }, [selectedDate, students]);
+      let paymentsUpToEnd = 0;
 
-  useEffect(() => {
-    if (!selectedDate) {
-      setDailyBalance(0);
-      setWeeklyBalance(0);
-      setYearlyBalance(0);
-      return;
-    }
+      // Payments
+      if (student.payments) {
+        for (const p of student.payments) {
+          if (p.date >= start && p.date <= end) {
+            totalPayments += p.amount;
+          }
+          if (p.date <= end) {
+            paymentsUpToEnd += p.amount;
+          }
+        }
+      }
 
-    const referenceDate = new Date(selectedDate);
-    if (isNaN(referenceDate.getTime())) {
-      setDailyBalance(0);
-      setWeeklyBalance(0);
-      setYearlyBalance(0);
-      return;
-    }
+      // Lessons
+      if (student.lessons) {
+        for (const l of student.lessons) {
+          if (l.date >= start && l.date <= end) {
+            lessonsCount++;
+          }
+        }
+      }
 
-    const endOfDay = new Date(referenceDate);
-    endOfDay.setHours(23, 59, 59, 999);
-    const startOfWeek = new Date(referenceDate);
-    startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-    const targetYear = referenceDate.getFullYear();
-    const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59, 999);
-
-    let daily = 0,
-      weekly = 0,
-      yearly = 0;
-    students.forEach((student) => {
       const totalFee = student.totalFee || 0;
-      const paymentsUpToDay =
-        student.payments?.reduce(
-          (sum, p) => (p.date <= endOfDay ? sum + p.amount : sum),
-          0
-        ) || 0;
-      const dayBalance = totalFee - paymentsUpToDay;
-      if (dayBalance > 0) daily += dayBalance;
-
-      const paymentsUpToWeek =
-        student.payments?.reduce(
-          (sum, p) => (p.date <= endOfWeek ? sum + p.amount : sum),
-          0
-        ) || 0;
-      const weekBalance = totalFee - paymentsUpToWeek;
-      if (weekBalance > 0) weekly += weekBalance;
-
-      const paymentsUpToYear =
-        student.payments?.reduce(
-          (sum, p) => (p.date <= endOfYear ? sum + p.amount : sum),
-          0
-        ) || 0;
-      const yearBalance = totalFee - paymentsUpToYear;
-      if (yearBalance > 0) yearly += yearBalance;
+      const balance = totalFee - paymentsUpToEnd;
+      if (balance > 0) totalOutstanding += balance;
     });
-    setDailyBalance(daily);
-    setWeeklyBalance(weekly);
-    setYearlyBalance(yearly);
-  }, [selectedDate, students]);
+
+    setRangeTotalPayments(totalPayments);
+    setRangeEndBalance(totalOutstanding);
+    setRangeLessonsCount(lessonsCount);
+  }, [rangeStartDate, rangeEndDate, students]);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -432,7 +389,7 @@ function BranchAccessContent() {
       (s.accountNumber &&
         s.accountNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (s.phone && s.phone.includes(searchQuery)) ||
-      (s.idNumber && s.idNumber.includes(searchQuery))
+      (s.idNumber && s.idNumber.includes(searchQuery)),
   );
 
   const generateLesson = async () => {
@@ -443,7 +400,7 @@ function BranchAccessContent() {
 
     if (lessonsTaken >= MAX_LESSONS) {
       setLessonError(
-        `❌ Student has already completed ${MAX_LESSONS} lessons (maximum).`
+        `❌ Student has already completed ${MAX_LESSONS} lessons (maximum).`,
       );
       setLessonSuccess("");
       return;
@@ -451,7 +408,7 @@ function BranchAccessContent() {
 
     if (balance > 0 && lessonsTaken >= MAX_LESSONS_WITH_BALANCE) {
       setLessonError(
-        `❌ Student has an outstanding balance of Ksh ${balance}. Please clear the balance first to continue lessons. (Max ${MAX_LESSONS_WITH_BALANCE} lessons allowed with balance.)`
+        `❌ Student has an outstanding balance of Ksh ${balance}. Please clear the balance first to continue lessons. (Max ${MAX_LESSONS_WITH_BALANCE} lessons allowed with balance.)`,
       );
       setLessonSuccess("");
       return;
@@ -460,7 +417,7 @@ function BranchAccessContent() {
     const minRequiredFee = getMinFeeForLessons(selectedStudent);
     if (selectedStudent.feePaid < minRequiredFee) {
       setLessonError(
-        `❌ Student has paid Ksh ${selectedStudent.feePaid.toLocaleString()} but needs at least Ksh ${minRequiredFee.toLocaleString()} to take lessons. Please pay the required amount first.`
+        `❌ Student has paid Ksh ${selectedStudent.feePaid.toLocaleString()} but needs at least Ksh ${minRequiredFee.toLocaleString()} to take lessons. Please pay the required amount first.`,
       );
       setLessonSuccess("");
       return;
@@ -487,7 +444,7 @@ function BranchAccessContent() {
         branch!.id,
         "students",
         selectedStudent.id,
-        "lessons"
+        "lessons",
       );
       await addDoc(lessonsRef, {
         date: Timestamp.now(),
@@ -527,7 +484,7 @@ function BranchAccessContent() {
         branch!.id,
         "students",
         selectedStudent.id,
-        "payments"
+        "payments",
       );
       const paymentData: any = {
         amount,
@@ -548,7 +505,7 @@ function BranchAccessContent() {
         "branches",
         branch!.id,
         "students",
-        selectedStudent.id
+        selectedStudent.id,
       );
       await updateDoc(studentDocRef, { feePaid: newFeePaid });
 
@@ -568,7 +525,7 @@ function BranchAccessContent() {
         payments: updatedPayments,
       });
       setPaymentSuccess(
-        `✅ Ksh ${amount} recorded as ${paymentMethod === "mpesa" ? "M-Pesa" : "Cash"}!`
+        `✅ Ksh ${amount} recorded as ${paymentMethod === "mpesa" ? "M-Pesa" : "Cash"}!`,
       );
       setPaymentError("");
       setNewPaymentAmount("");
@@ -588,7 +545,7 @@ function BranchAccessContent() {
     const lessonCount = examStudent.lessons?.length || 0;
     if (lessonCount < 10) {
       setExamRequestError(
-        `❌ Student has only ${lessonCount} lesson(s). Must complete at least 10 lessons before requesting an exam.`
+        `❌ Student has only ${lessonCount} lesson(s). Must complete at least 10 lessons before requesting an exam.`,
       );
       return;
     }
@@ -629,11 +586,11 @@ function BranchAccessContent() {
     }
     const trimmedName = manualStudentName.trim().toLowerCase();
     const matchedStudent = students.find(
-      (s) => s.name.toLowerCase() === trimmedName
+      (s) => s.name.toLowerCase() === trimmedName,
     );
     if (!matchedStudent) {
       setManualNameError(
-        `❌ "${manualStudentName.trim()}" not found in ${branch?.name} records. Please check the spelling or register the student first.`
+        `❌ "${manualStudentName.trim()}" not found in ${branch?.name} records. Please check the spelling or register the student first.`,
       );
       return;
     }
@@ -641,7 +598,7 @@ function BranchAccessContent() {
       const providedId = manualStudentId.trim();
       if (matchedStudent.idNumber && matchedStudent.idNumber !== providedId) {
         setManualNameError(
-          `❌ ID number mismatch. Student "${matchedStudent.name}" has ID ${matchedStudent.idNumber}. Please correct.`
+          `❌ ID number mismatch. Student "${matchedStudent.name}" has ID ${matchedStudent.idNumber}. Please correct.`,
         );
         return;
       }
@@ -649,7 +606,7 @@ function BranchAccessContent() {
     const lessonCount = matchedStudent.lessons?.length || 0;
     if (lessonCount < 10) {
       setManualNameError(
-        `❌ Student "${matchedStudent.name}" has only ${lessonCount} lesson(s). Must complete at least 10 lessons before requesting an exam.`
+        `❌ Student "${matchedStudent.name}" has only ${lessonCount} lesson(s). Must complete at least 10 lessons before requesting an exam.`,
       );
       return;
     }
@@ -686,7 +643,7 @@ function BranchAccessContent() {
     }
   };
 
-  // ---------- PRINT FUNCTIONS (modified to show preview modal) ----------
+  // PRINT FUNCTIONS (unchanged)
   const printReceipt = (payment: Payment) => {
     if (!selectedStudent) return;
     const remainingBalance =
@@ -701,7 +658,8 @@ function BranchAccessContent() {
             <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
           </div>
           <p style="font-style: italic; color: #2c3e50; margin: 10px 0 20px 0; font-size: 1.1em;">
-            🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
+            🚗 Start your journey with Harmflow Driving School – where safety meets confidence.
+Every great driver begins with the right foundation. Our slogan says it all: 🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
           </p>
           <h2>${branch?.name} - Payment Receipt</h2>
           <hr/>
@@ -750,7 +708,8 @@ function BranchAccessContent() {
             <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
           </div>
           <p style="font-style: italic; color: #2c3e50; margin: 10px 0 20px 0; font-size: 1.1em;">
-            🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
+            🚗tart your journey with Harmflow Driving School – where safety meets confidence.
+Every great driver begins with the right foundation. Our slogan says it all: 🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
           </p>
           <h2>${branch?.name} - Lesson Ticket</h2>
           <hr/>
@@ -772,7 +731,7 @@ function BranchAccessContent() {
     printWindow.document.close();
   };
 
-  // ---------- MODIFIED REPORT FUNCTIONS (show preview modal first) ----------
+  // REPORT FUNCTIONS (unchanged)
   const generateReport = () => {
     if (!reportStartDate || !reportEndDate) {
       alert("Please select both From and To dates.");
@@ -821,7 +780,8 @@ function BranchAccessContent() {
         const enrollmentDate = new Date(student.createdAt);
         if (enrollmentDate >= start && enrollmentDate <= end) {
           const currentBalance = (student.totalFee || 0) - student.feePaid;
-          enrolledStudentsOutstanding += currentBalance > 0 ? currentBalance : 0;
+          enrolledStudentsOutstanding +=
+            currentBalance > 0 ? currentBalance : 0;
           enrolledCount++;
         }
       }
@@ -843,7 +803,8 @@ function BranchAccessContent() {
             <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
           </div>
           <p style="font-style: italic; color: #2c3e50; margin: 5px 0 0 0; text-align: center; font-size: 0.9em;">
-            🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
+            🚗 tart your journey with Harmflow Driving School – where safety meets confidence.
+Every great driver begins with the right foundation. Our slogan says it all: 🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
           </p>
           <h2 style="text-align: center;">${branch?.name} - Financial Report (Payments in Period)</h2>
           <p><strong>Period:</strong> ${reportStartDate} to ${reportEndDate}</p>
@@ -859,12 +820,26 @@ function BranchAccessContent() {
               <tr><th>Name</th><th>Admission No</th><th>Phone</th><th>Paid (Period)</th><th>Outstanding (as of end date)</th></tr>
             </thead>
             <tbody>
-              ${studentReports.map(s => `
-                <tr><td style="padding: 4px;">${s.name}</td><td style="padding: 4px;">${s.account}</td><td style="padding: 4px;">${s.phone}</td><td style="padding: 4px; text-align: right;">Ksh ${s.paidInPeriod.toLocaleString()}</td><td style="padding: 4px; text-align: right;">Ksh ${s.outstandingAsOfEnd.toLocaleString()}</td></tr>
-              `).join("")}
+              ${studentReports
+                .map(
+                  (s) => `
+                <tr>
+                  <td style="padding: 4px;">${s.name}</td>
+                  <td style="padding: 4px;">${s.account}</td>
+                  <td style="padding: 4px;">${s.phone}</td>
+                  <td style="padding: 4px; text-align: right;">Ksh ${s.paidInPeriod.toLocaleString()}</td>
+                  <td style="padding: 4px; text-align: right;">Ksh ${s.outstandingAsOfEnd.toLocaleString()}</td>
+                </tr>
+              `,
+                )
+                .join("")}
             </tbody>
             <tfoot>
-              <tr><td colspan="3"><strong>TOTALS:</strong></td><td style="text-align: right;"><strong>Ksh ${totalPaidInPeriod.toLocaleString()}</strong></td><td style="text-align: right;"><strong>Ksh ${totalOutstandingAsOfEnd.toLocaleString()}</strong></td></tr>
+              <tr>
+                <td colspan="3"><strong>TOTALS:</strong></td>
+                <td style="text-align: right;"><strong>Ksh ${totalPaidInPeriod.toLocaleString()}</strong></td>
+                <td style="text-align: right;"><strong>Ksh ${totalOutstandingAsOfEnd.toLocaleString()}</strong></td>
+              </tr>
             </tfoot>
           </table>
           <button onclick="window.print();window.close();" style="margin-top: 20px;">Print Report</button>
@@ -923,7 +898,8 @@ function BranchAccessContent() {
             <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
           </div>
           <p style="font-style: italic; color: #2c3e50; margin: 5px 0 0 0; text-align: center; font-size: 0.9em;">
-            🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
+            🚗 tart your journey with Harmflow Driving School – where safety meets confidence.
+Every great driver begins with the right foundation. Our slogan says it all: 🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
           </p>
           <h2 style="text-align: center;">${branch?.name} - Students Enrolled in Period</h2>
           <p style="text-align: center;"><strong>Enrollment Period:</strong> ${reportStartDate} to ${reportEndDate}</p>
@@ -941,17 +917,37 @@ function BranchAccessContent() {
               <tr><th>#</th><th>Name</th><th>Admission No</th><th>Phone</th><th>Enrollment Date</th><th>Total Fee (Ksh)</th><th>Paid (Ksh)</th><th>Balance (Ksh)</th></tr>
             </thead>
             <tbody>
-              ${enrolledStudents.map((student, idx) => {
-                const fee = student.totalFee || 0;
-                const paid = student.feePaid;
-                const balance = fee - paid;
-                const enrollDate = student.createdAt ? new Date(student.createdAt).toLocaleDateString() : "Unknown";
-                return `
-                  <tr><td style="text-align: center;">${idx+1}${student.name}</td><td style="padding: 4px;">${student.name}</td><td>${student.accountNumber || "N/A"}</td><td>${student.phone || "N/A"}</td><td>${enrollDate}<td><td style="text-align: right;">Ksh ${fee.toLocaleString()}</td><td style="text-align: right;">Ksh ${paid.toLocaleString()}</td><td style="text-align: right; font-weight: bold; color: ${balance > 0 ? "#d9534f" : "#28a745"};">Ksh ${balance.toLocaleString()}</td></tr>
+              ${enrolledStudents
+                .map((student, idx) => {
+                  const fee = student.totalFee || 0;
+                  const paid = student.feePaid;
+                  const balance = fee - paid;
+                  const enrollDate = student.createdAt
+                    ? new Date(student.createdAt).toLocaleDateString()
+                    : "Unknown";
+                  return `
+                  <tr>
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td style="padding: 4px;">${student.name}</td>
+                    <td style="padding: 4px;">${student.accountNumber || "N/A"}</td>
+                    <td style="padding: 4px;">${student.phone || "N/A"}</td>
+                    <td style="padding: 4px;">${enrollDate}</td>
+                    <td style="text-align: right;">Ksh ${fee.toLocaleString()}</td>
+                    <td style="text-align: right;">Ksh ${paid.toLocaleString()}</td>
+                    <td style="text-align: right; font-weight: bold; color: ${balance > 0 ? "#d9534f" : "#28a745"};">Ksh ${balance.toLocaleString()}</td>
+                  </tr>
                 `;
-              }).join("")}
+                })
+                .join("")}
             </tbody>
-            <tfoot style="background-color: #f9f9f9;"><tr><td colspan="5" style="text-align: right;"><strong>TOTALS:</strong></td><td style="text-align: right;"><strong>Ksh ${totalFees.toLocaleString()}</strong></td><td style="text-align: right;"><strong>Ksh ${totalPaid.toLocaleString()}</strong></td><td style="text-align: right;"><strong>Ksh ${totalBalance.toLocaleString()}</strong></td></tr></tfoot>
+            <tfoot style="background-color: #f9f9f9;">
+              <tr>
+                <td colspan="5" style="text-align: right;"><strong>TOTALS:</strong></td>
+                <td style="text-align: right;"><strong>Ksh ${totalFees.toLocaleString()}</strong></td>
+                <td style="text-align: right;"><strong>Ksh ${totalPaid.toLocaleString()}</strong></td>
+                <td style="text-align: right;"><strong>Ksh ${totalBalance.toLocaleString()}</strong></td>
+              </tr>
+            </tfoot>
           </table>
           <hr/><p style="text-align: center;">This report includes only students whose enrollment date falls within the selected period.</p>
           <button onclick="window.print();window.close();" style="display: block; margin: 20px auto; padding: 8px 16px;">Print Report</button>
@@ -981,7 +977,7 @@ function BranchAccessContent() {
 
     const totalOutstanding = studentsWithBalance.reduce(
       (sum, student) => sum + ((student.totalFee || 0) - student.feePaid),
-      0
+      0,
     );
     const currentDate = new Date().toLocaleDateString();
 
@@ -993,7 +989,8 @@ function BranchAccessContent() {
             <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
           </div>
           <p style="font-style: italic; color: #2c3e50; margin: 5px 0 0 0; text-align: center; font-size: 0.9em;">
-            🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
+            🚗 Start your journey with Harmflow Driving School – where safety meets confidence.
+            Every great driver begins with the right foundation. Our slogan says it all: 🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
           </p>
           <h2 style="text-align: center;">${branch?.name} - Students with Outstanding Balance</h2>
           <p style="text-align: center;"><strong>Report Date:</strong> ${currentDate}</p>
@@ -1008,16 +1005,33 @@ function BranchAccessContent() {
               <tr><th>#</th><th>Name</th><th>Admission No</th><th>Phone</th><th>Total Fee (Ksh)</th><th>Paid (Ksh)</th><th>Balance (Ksh)</th></tr>
             </thead>
             <tbody>
-              ${studentsWithBalance.map((student, idx) => {
-                const totalFee = student.totalFee || 0;
-                const paid = student.feePaid;
-                const balance = totalFee - paid;
-                return `
-                  <tr><td style="text-align: center;">${idx+1}${student.name}</td><td style="padding: 4px;">${student.name}</td><td style="padding: 4px;">${student.accountNumber || "N/A"}</td><td style="padding: 4px;">${student.phone || "N/A"}</td><td style="text-align: right;">Ksh ${totalFee.toLocaleString()}</td><td style="text-align: right;">Ksh ${paid.toLocaleString()}</td><td style="text-align: right; font-weight: bold; color: #d9534f;">Ksh ${balance.toLocaleString()}</td></tr>
+              ${studentsWithBalance
+                .map((student, idx) => {
+                  const totalFee = student.totalFee || 0;
+                  const paid = student.feePaid;
+                  const balance = totalFee - paid;
+                  return `
+                  <tr>
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td style="padding: 4px;">${student.name}</td>
+                    <td style="padding: 4px;">${student.accountNumber || "N/A"}</td>
+                    <td style="padding: 4px;">${student.phone || "N/A"}</td>
+                    <td style="text-align: right;">Ksh ${totalFee.toLocaleString()}</td>
+                    <td style="text-align: right;">Ksh ${paid.toLocaleString()}</td>
+                    <td style="text-align: right; font-weight: bold; color: #d9534f;">Ksh ${balance.toLocaleString()}</td>
+                  </tr>
                 `;
-              }).join("")}
+                })
+                .join("")}
             </tbody>
-            <tfoot style="background-color: #f9f9f9;"><tr><td colspan="4" style="text-align: right;"><strong>TOTALS:</strong></td><td style="text-align: right;"><strong>Ksh ${studentsWithBalance.reduce((sum, s) => sum + (s.totalFee || 0), 0).toLocaleString()}</strong></td><td style="text-align: right;"><strong>Ksh ${studentsWithBalance.reduce((sum, s) => sum + s.feePaid, 0).toLocaleString()}</strong></td><td style="text-align: right;"><strong>Ksh ${totalOutstanding.toLocaleString()}</strong></td></tr></tfoot>
+            <tfoot style="background-color: #f9f9f9;">
+              <tr>
+                <td colspan="4" style="text-align: right;"><strong>TOTALS:</strong></td>
+                <td style="text-align: right;"><strong>Ksh ${studentsWithBalance.reduce((sum, s) => sum + (s.totalFee || 0), 0).toLocaleString()}</strong></td>
+                <td style="text-align: right;"><strong>Ksh ${studentsWithBalance.reduce((sum, s) => sum + s.feePaid, 0).toLocaleString()}</strong></td>
+                <td style="text-align: right;"><strong>Ksh ${totalOutstanding.toLocaleString()}</strong></td>
+              </tr>
+            </tfoot>
           </table>
           <hr/><p style="text-align: center;">This report lists all students with unpaid fees. Please follow up for collection.</p>
           <button onclick="window.print();window.close();" style="display: block; margin: 20px auto; padding: 8px 16px;">Print Report</button>
@@ -1028,7 +1042,6 @@ function BranchAccessContent() {
     setShowReportModal(true);
   };
 
-  // Helper to open print window from modal
   const handlePrintFromModal = () => {
     const printWindow = window.open("", "_blank");
     if (printWindow) {
@@ -1087,7 +1100,7 @@ function BranchAccessContent() {
   const totalRevenue = students.reduce((sum, s) => sum + s.feePaid, 0);
   const totalOutstanding = students.reduce(
     (sum, s) => sum + ((s.totalFee || 0) - s.feePaid),
-    0
+    0,
   );
 
   return (
@@ -1102,7 +1115,7 @@ function BranchAccessContent() {
         </p>
       </div>
 
-      {/* Date Range Report Section */}
+      {/* Date Range Report Section (existing – unchanged) */}
       <div className="bg-gray-600 rounded-lg shadow p-4 mb-5 border border-gray-600">
         <h3 className="font-semibold text-md mb-2">
           📊 Reports (select date range)
@@ -1145,7 +1158,8 @@ function BranchAccessContent() {
         </div>
         <p className="text-xs text-gray-300 mt-2">
           *Payments in Period*: shows payments collected in date range (all
-          students).<br />
+          students).
+          <br />
           *Students Enrolled in Period*: shows only students whose enrollment
           date falls between the selected dates, with their full fee summary.
         </p>
@@ -1166,7 +1180,7 @@ function BranchAccessContent() {
                 (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
               if (balance > 0) {
                 alert(
-                  "Transfer rejected due to uncleared school fee. Kindly finish payment to proceed with transfer."
+                  "Transfer rejected due to uncleared school fee. Kindly ask student to clear payment to proceed with transfer.",
                 );
                 return;
               }
@@ -1194,47 +1208,54 @@ function BranchAccessContent() {
         </div>
       </div>
 
-      {/* Existing date filter */}
+      {/* DATE RANGE FILTER (replaces old single date picker) */}
       <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-black rounded-lg shadow p-3 sm:p-4 mb-5">
         <label className="text-sm sm:text-base font-medium block mb-2">
-          <strong>Select Date:</strong>
+          <strong>Select Date Range:</strong>
         </label>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="border p-1.5 sm:p-2 rounded text-sm sm:text-base"
-        />
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="block text-xs text-white/80">From Date</label>
+            <input
+              type="date"
+              value={rangeStartDate}
+              onChange={(e) => setRangeStartDate(e.target.value)}
+              className="border p-1.5 sm:p-2 rounded text-sm sm:text-base bg-white text-black"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-white/80">To Date</label>
+            <input
+              type="date"
+              value={rangeEndDate}
+              onChange={(e) => setRangeEndDate(e.target.value)}
+              className="border p-1.5 sm:p-2 rounded text-sm sm:text-base bg-white text-black"
+            />
+          </div>
+          <button
+            onClick={() => {
+              // Force recalculation – useEffect already watches dates
+              setRangeStartDate(rangeStartDate);
+            }}
+            className="bg-yellow-500 text-black px-3 py-1.5 rounded text-sm hover:bg-yellow-600"
+          >
+            Apply Range
+          </button>
+        </div>
         <div className="mt-3 space-y-1 text-sm sm:text-base">
           <p>
-            <strong>📅 Daily Collection (Revenue):</strong> Ksh{" "}
-            {dailyTotal.toLocaleString()}
-          </p>
-          <p>
-            <strong>📊 Weekly Collection (Revenue):</strong> Ksh{" "}
-            {weeklyTotal.toLocaleString()}
-          </p>
-          <p>
-            <strong>📊 Yearly Collection (Revenue):</strong> Ksh{" "}
-            {yearlyTotal.toLocaleString()}
+            <strong>💰 Total Collections (Revenue) in Period:</strong> Ksh{" "}
+            {rangeTotalPayments.toLocaleString()}
           </p>
           <p className="mt-2 pt-2 border-t border-gray-400">
-            <strong>⚖️ Daily Outstanding Balance:</strong> Ksh{" "}
-            {dailyBalance.toLocaleString()}
-          </p>
-          <p>
-            <strong>⚖️ Weekly Outstanding Balance:</strong> Ksh{" "}
-            {weeklyBalance.toLocaleString()}
-          </p>
-          <p>
-            <strong>⚖️ Yearly Outstanding Balance:</strong> Ksh{" "}
-            {yearlyBalance.toLocaleString()}
+            <strong>📊 Outstanding Balance as of {rangeEndDate}:</strong> Ksh{" "}
+            {rangeEndBalance.toLocaleString()}
           </p>
         </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-5 sm:mb-8">
+      {/* Stats cards - the fourth card now shows lessons in selected period */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-8">
         <div className="bg-blue-300 rounded-lg shadow p-3 sm:p-5">
           <div className="text-black text-xs sm:text-sm">Total Students</div>
           <div className="text-2xl sm:text-3xl font-bold text-gray-800">
@@ -1257,6 +1278,15 @@ function BranchAccessContent() {
             Ksh {totalOutstanding.toLocaleString()}
           </div>
         </div>
+        <div className="bg-blue-300 rounded-lg shadow p-3 sm:p-5">
+          <div className="text-black text-xs sm:text-sm">Lessons Taken</div>
+          <div className="text-2xl sm:text-3xl font-bold text-purple-800">
+            {rangeLessonsCount}
+          </div>
+          <div className="text-xs text-gray-700 mt-1">
+            (from {rangeStartDate} to {rangeEndDate})
+          </div>
+        </div>
       </div>
 
       {/* Search bar */}
@@ -1270,7 +1300,7 @@ function BranchAccessContent() {
         />
       </div>
 
-      {/* Student list and detail panel */}
+      {/* Student list and detail panel (unchanged) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-white rounded-lg shadow overflow-hidden lg:col-span-1">
           <div className="px-3 py-2 bg-gray-400 border-b">
@@ -1403,7 +1433,8 @@ function BranchAccessContent() {
                 ) : (
                   <p className="text-sm text-white">No payments recorded.</p>
                 )}
-                {(selectedStudent.totalFee || 0) - selectedStudent.feePaid > 0 ? (
+                {(selectedStudent.totalFee || 0) - selectedStudent.feePaid >
+                0 ? (
                   <div className="mt-3 pt-3 border-t">
                     <div className="flex flex-wrap gap-3 items-end">
                       <div className="flex-1 min-w-[100px]">
@@ -1468,7 +1499,8 @@ function BranchAccessContent() {
                 ) : (
                   <div className="mt-3 pt-3 border-t">
                     <p className="text-green-300 text-sm font-semibold">
-                      ✅ Fully Paid – No further payments required, accept internal exams 1,000.
+                      ✅ Fully Paid – No further payments required, accept
+                      internal exams 1,000.
                     </p>
                   </div>
                 )}
@@ -1485,7 +1517,8 @@ function BranchAccessContent() {
                     </span>
                     <span
                       className={`ml-2 font-bold ${
-                        MAX_LESSONS - (selectedStudent.lessons?.length || 0) <= 5
+                        MAX_LESSONS - (selectedStudent.lessons?.length || 0) <=
+                        5
                           ? "text-red-400"
                           : "text-yellow-200"
                       }`}
@@ -1495,7 +1528,8 @@ function BranchAccessContent() {
                     </span>
                   </div>
                 </div>
-                {(selectedStudent.totalFee || 0) - selectedStudent.feePaid > 0 &&
+                {(selectedStudent.totalFee || 0) - selectedStudent.feePaid >
+                  0 &&
                   (selectedStudent.lessons?.length || 0) >=
                     MAX_LESSONS_WITH_BALANCE && (
                     <div className="bg-red-900 text-white text-xs p-2 rounded mb-2">
@@ -1508,7 +1542,8 @@ function BranchAccessContent() {
                       {MAX_LESSONS_WITH_BALANCE}.
                     </div>
                   )}
-                {selectedStudent.lessons && selectedStudent.lessons.length > 0 ? (
+                {selectedStudent.lessons &&
+                selectedStudent.lessons.length > 0 ? (
                   <div className="space-y-1 max-h-32 overflow-y-auto mb-3">
                     {(() => {
                       const grouped: { [date: string]: Lesson[] } = {};
@@ -1552,7 +1587,7 @@ function BranchAccessContent() {
                               </div>
                             )}
                           </div>
-                        )
+                        ),
                       );
                     })()}
                   </div>
@@ -1599,7 +1634,7 @@ function BranchAccessContent() {
         </div>
       </div>
 
-      {/* Exam Requests Modal */}
+      {/* Exam Requests Modal (unchanged) */}
       {showRequestsModal && (
         <div className="fixed inset-0 bg-gray-400 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -1654,7 +1689,9 @@ function BranchAccessContent() {
                     <tbody>
                       {allExamRequests.map((req) => (
                         <tr key={req.id} className="hover:bg-green-500">
-                          <td className="px-4 py-2 border">{req.studentName}</td>
+                          <td className="px-4 py-2 border">
+                            {req.studentName}
+                          </td>
                           <td className="px-4 py-2 border">
                             {req.studentIdNumber || "N/A"}
                           </td>
@@ -1703,7 +1740,7 @@ function BranchAccessContent() {
         </div>
       )}
 
-      {/* Exam Request Modal for existing student */}
+      {/* Exam Request Modal for existing student (unchanged) */}
       {showExamModal && examStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
@@ -1770,13 +1807,15 @@ function BranchAccessContent() {
               </button>
             </div>
             {examRequestSuccess && (
-              <p className="text-green-600 text-xs mt-2">{examRequestSuccess}</p>
+              <p className="text-green-600 text-xs mt-2">
+                {examRequestSuccess}
+              </p>
             )}
           </div>
         </div>
       )}
 
-      {/* Manual Exam Request Modal */}
+      {/* Manual Exam Request Modal (unchanged) */}
       {showManualExamModal && (
         <div className="fixed inset-0 bg-gray-300 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-green-950 rounded-lg p-6 max-w-md w-full">
@@ -1876,7 +1915,7 @@ function BranchAccessContent() {
         </div>
       )}
 
-      {/* Transfer Modal */}
+      {/* Transfer Modal (unchanged) */}
       {showTransferModal && (
         <div className="fixed inset-0 bg-[#052E16] bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white text-black rounded-lg p-6 max-w-md w-full">
@@ -1885,9 +1924,7 @@ function BranchAccessContent() {
               Student: <strong>{selectedStudent?.name}</strong>
             </p>
             <div className="mb-3">
-              <label className="block text-sm font-medium">
-                Target Branch
-              </label>
+              <label className="block text-sm font-medium">Target Branch</label>
               <select
                 value={targetBranchId}
                 onChange={(e) => setTargetBranchId(e.target.value)}
@@ -1946,7 +1983,7 @@ function BranchAccessContent() {
 
                     if (res.ok) {
                       alert(
-                        "Transfer request submitted. Admin will review it."
+                        "Transfer request submitted. Admin will review it.",
                       );
                       setShowTransferModal(false);
                       setTargetBranchId("");
@@ -1970,7 +2007,7 @@ function BranchAccessContent() {
         </div>
       )}
 
-      {/* ========== NEW: Report Preview Modal ========== */}
+      {/* Report Preview Modal (unchanged) */}
       {showReportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-100 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -1984,7 +2021,6 @@ function BranchAccessContent() {
               </button>
             </div>
             <div className="p-4 bg-white">
-              {/* Display the report HTML inside an iframe for accurate rendering */}
               <iframe
                 srcDoc={reportHTML}
                 title="Report Preview"

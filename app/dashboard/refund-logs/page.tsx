@@ -12,9 +12,8 @@ import {
   orderBy,
 } from "firebase/firestore";
 
-// Password from environment variable (same or different from overpayments)
-const REQUIRED_PASSWORD =
-  process.env.NEXT_PUBLIC_REFUND_LOGS_PASSWORD || "refundLogs456";
+// Password hardcoded directly in the code (no .env dependency)
+const REQUIRED_PASSWORD = "1234";
 
 interface RefundLog {
   id: string;
@@ -291,7 +290,6 @@ export default function RefundLogsPage() {
         ) : logs.length === 0 ? (
           <div className="loading-text">No refunds have been recorded yet.</div>
         ) : (
-          
           <div style={{ overflowX: "auto" }}>
             <table>
               <thead>
@@ -326,4 +324,4 @@ export default function RefundLogsPage() {
       </div>
     </>
   );
-} 
+}

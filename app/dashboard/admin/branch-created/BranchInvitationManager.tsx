@@ -22,7 +22,8 @@ const DEFAULT_CLASS_FEES: Record<string, number> = {
   A3: 7500,
 };
 
-const REQUIRED_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123";
+// Hardcoded admin password (no .env)
+const REQUIRED_PASSWORD = "admin123";
 
 export default function BranchInvitationManager({
   branches: propBranches,
@@ -100,6 +101,22 @@ export default function BranchInvitationManager({
     setPasswords((prev) => ({ ...prev, [branchId]: value }));
   };
 
+  // Revoke existing invitation for a branch (disable old link)
+  const revokeExistingInvitation = async (branchId: string) => {
+    try {
+      // Assuming your backend has a DELETE or POST endpoint to revoke by branchId
+      // Adjust the URL to match your actual API route (e.g., `/api/invite/revoke`)
+      const res = await fetch(`/api/invite/revoke?branchId=${branchId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok && res.status !== 404) {
+        console.warn("Failed to revoke old invitation for branch", branchId);
+      }
+    } catch (err) {
+      console.warn("Error revoking old invitation:", err);
+    }
+  };
+
   const handleGenerate = async (branchId: string) => {
     const password = passwords[branchId];
     if (!password) {
@@ -111,6 +128,10 @@ export default function BranchInvitationManager({
     setError(null);
 
     try {
+      // 1. Disable any existing link for this branch (so old token stops working)
+      await revokeExistingInvitation(branchId);
+
+      // 2. Generate a brand new token with the new password
       const res = await fetch("/api/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,6 +142,7 @@ export default function BranchInvitationManager({
       if (!res.ok) throw new Error(data.error);
 
       const fullLink = `${window.location.origin}/branch-access?token=${data.token}`;
+      // Replace the old link with the new one (UI only shows the latest)
       setInvitationLinks((prev) => ({ ...prev, [branchId]: fullLink }));
     } catch (err: any) {
       setError(err.message || "Failed to generate invitation");

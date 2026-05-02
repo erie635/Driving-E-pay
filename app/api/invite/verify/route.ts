@@ -1,9 +1,9 @@
-﻿import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+﻿import { adminDb } from '@/lib/firebase/admin';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const token = url.searchParams.get('token');
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get('token');
 
   if (!token) {
     return NextResponse.json({ error: 'Missing token' }, { status: 400 });
@@ -14,29 +14,38 @@ export async function GET(req: Request) {
     const invitationSnap = await invitationRef.get();
 
     if (!invitationSnap.exists) {
-      return NextResponse.json({ error: 'Invalid or expired invitation' }, { status: 404 });
+      return NextResponse.json({ error: 'Invalid or revoked invitation' }, { status: 404 });
     }
 
     const invitation = invitationSnap.data();
-    if (invitation.expiresAt.toDate() < new Date()) {
-      return NextResponse.json({ error: 'Invitation expired' }, { status: 410 });
-    }
+    const branchId = invitation.branchId;
 
-    const branchRef = adminDb.collection('branches').doc(invitation.branchId);
+    // Fetch branch document from Firestore to get the name and any other info
+    const branchRef = adminDb.collection('branches').doc(branchId);
     const branchSnap = await branchRef.get();
 
     if (!branchSnap.exists) {
-      return NextResponse.json({ error: 'Branch not found' }, { status: 404 });
+      // If branch not found, still return branchId but with a fallback name
+      return NextResponse.json({
+        branch: { id: branchId, name: branchId },
+        password: invitation.password,
+      });
     }
 
+    const branchData = branchSnap.data();
+    const branch = {
+      id: branchId,
+      name: branchData.name || branchId,
+      // you can include additional fields if needed (e.g., address, slug)
+    };
+
+    // ✅ No expiration check – link is valid until revoked (deleted)
     return NextResponse.json({
-      branch: {
-        id: branchSnap.id,
-        name: branchSnap.data()?.name || invitation.branchId,
-      },
+      branch,
+      password: invitation.password,
     });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  } catch (error) {
+    console.error('Verification error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

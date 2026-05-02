@@ -15,15 +15,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Branch not found' }, { status: 404 });
   }
 
-  // Generate a unique token
+  // Revoke existing invitations for this branch (old link stops working)
+  const existingInvitations = await adminDb
+    .collection('branchInvitations')
+    .where('branchId', '==', branchId)
+    .get();
+  const deletePromises = existingInvitations.docs.map((doc) =>
+    adminDb.collection('branchInvitations').doc(doc.id).delete()
+  );
+  await Promise.all(deletePromises);
+
+  // Generate new token
   const token = crypto.randomBytes(32).toString('hex');
 
-  // Store invitation (expires after 7 days)
+  // Store invitation (no expiration)
   await adminDb.collection('branchInvitations').doc(token).set({
     branchId,
-    password, // ⚠️ in production, hash this password!
+    password,
     createdAt: new Date(),
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
 
   return NextResponse.json({ token });
