@@ -17,13 +17,14 @@ const DEFAULT_FEES: Record<string, number> = {
   "B1/B2": 15000,
   "C1": 14500,   // ✅ Correct value
   BC1: 18500,
+  B1: 15000,
   A1: 7500,
   A2: 7500,
   A3: 7500,
 };
 
 // Allowed class options (must match DEFAULT_FEES keys)
-const CLASS_OPTIONS = ["B1/B2", "BC1", "C1", "A1", "A2", "A3"];
+const CLASS_OPTIONS = ["B1/B2", "BC1", "C1", "B1", "A1", "A2", "A3"];
 
 // =====================================================
 // 🔐 INTERNAL PASSWORD (hardcoded) – change as needed
