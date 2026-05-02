@@ -429,14 +429,15 @@ export default function AdminExamRequests() {
                 className="w-full border rounded p-2 text-sm"
                 required
               >
-                <option value="">Select class...</option>
+                   <option value="">Select class...</option>
                 <option value="B1">B1/B2 (Light Vehicle)</option>
-                <option value="B2">B2 (Light Vehicle Auto)</option>
+                <option value="B2">B1 (Light Vehicle Auto)</option>
                 <option value="C1">C1 (Light Truck)</option>
-                <option value="C">C (Truck)</option>
+                <option value="C">BC1 (Truck)</option>
                 <option value="D1">D1 (PSV)</option>
                 <option value="A1">A1 (Motorcycle)</option>
-                <option value="A2">A2 (Motorcycle)</option>
+                <option value="A">A2 (Motorcycle)</option>
+                <option value="A">A3 (Motorcycle)</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">You can override the requested class if needed.</p>
             </div>

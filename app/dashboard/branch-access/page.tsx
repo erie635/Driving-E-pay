@@ -130,7 +130,7 @@ function BranchAccessContent() {
   const [rangeEndDate, setRangeEndDate] = useState(getLocalToday);
   const [rangeTotalPayments, setRangeTotalPayments] = useState(0);
   const [rangeEndBalance, setRangeEndBalance] = useState(0);
-  const [rangeLessonsCount, setRangeLessonsCount] = useState(0); // NEW
+  const [rangeLessonsCount, setRangeLessonsCount] = useState(0);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -157,11 +157,12 @@ function BranchAccessContent() {
 
   const MAX_LESSONS = 20;
   const MAX_LESSONS_WITH_BALANCE = 5;
-
   const getMinFeeForLessons = (student: Student): number => {
     const primaryClass = student.classes?.[0] || "";
-    if (primaryClass === "B1" || primaryClass === "B2") return 8000;
-    return 10000;
+    if (primaryClass === "B1/B2") return 8000;
+    if (primaryClass === "B1") return 8000;
+    if (primaryClass === "BC1") return 10000;
+    return 0;
   };
 
   const fetchAllExamRequests = async () => {
@@ -189,7 +190,7 @@ function BranchAccessContent() {
     }
   };
 
-  // REAL-TIME STUDENT LISTENER (unchanged)
+  // REAL-TIME STUDENT LISTENER
   useEffect(() => {
     if (!branch?.id) return;
 
@@ -322,7 +323,7 @@ function BranchAccessContent() {
     if (showTransferModal) fetchBranches();
   }, [showTransferModal, branch?.id]);
 
-  // ========== UPDATED: Range totals (payments, balance, lessons) ==========
+  // Range totals (payments, balance, lessons)
   useEffect(() => {
     if (!rangeStartDate || !rangeEndDate) {
       setRangeTotalPayments(0);
@@ -342,7 +343,6 @@ function BranchAccessContent() {
     students.forEach((student) => {
       let paymentsUpToEnd = 0;
 
-      // Payments
       if (student.payments) {
         for (const p of student.payments) {
           if (p.date >= start && p.date <= end) {
@@ -354,7 +354,6 @@ function BranchAccessContent() {
         }
       }
 
-      // Lessons
       if (student.lessons) {
         for (const l of student.lessons) {
           if (l.date >= start && l.date <= end) {
@@ -643,7 +642,7 @@ function BranchAccessContent() {
     }
   };
 
-  // PRINT FUNCTIONS (unchanged)
+  // PRINT FUNCTIONS
   const printReceipt = (payment: Payment) => {
     if (!selectedStudent) return;
     const remainingBalance =
@@ -731,7 +730,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
     printWindow.document.close();
   };
 
-  // REPORT FUNCTIONS (unchanged)
+  // REPORT FUNCTIONS
   const generateReport = () => {
     if (!reportStartDate || !reportEndDate) {
       alert("Please select both From and To dates.");
@@ -1104,7 +1103,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
   );
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-white max-w-7xl mx-auto">
+    <div className="p-3 sm:p-4 md:p-6 bg-white w-full">
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-white rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
@@ -1115,7 +1114,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         </p>
       </div>
 
-      {/* Date Range Report Section (existing â€“ unchanged) */}
+      {/* Date Range Report Section */}
       <div className="bg-gray-600 rounded-lg shadow p-4 mb-5 border border-gray-600">
         <h3 className="font-semibold text-md mb-2">
           ðŸ“Š Reports (select date range)
@@ -1208,7 +1207,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         </div>
       </div>
 
-      {/* DATE RANGE FILTER (replaces old single date picker) */}
+      {/* DATE RANGE FILTER */}
       <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-black rounded-lg shadow p-3 sm:p-4 mb-5">
         <label className="text-sm sm:text-base font-medium block mb-2">
           <strong>Select Date Range:</strong>
@@ -1234,7 +1233,6 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
           </div>
           <button
             onClick={() => {
-              // Force recalculation â€“ useEffect already watches dates
               setRangeStartDate(rangeStartDate);
             }}
             className="bg-yellow-500 text-black px-3 py-1.5 rounded text-sm hover:bg-yellow-600"
@@ -1254,7 +1252,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         </div>
       </div>
 
-      {/* Stats cards - the fourth card now shows lessons in selected period */}
+      {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-8">
         <div className="bg-blue-300 rounded-lg shadow p-3 sm:p-5">
           <div className="text-black text-xs sm:text-sm">Total Students</div>
@@ -1300,7 +1298,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         />
       </div>
 
-      {/* Student list and detail panel (unchanged) */}
+      {/* Student list and detail panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-white rounded-lg shadow overflow-hidden lg:col-span-1">
           <div className="px-3 py-2 bg-gray-400 border-b">
@@ -1634,7 +1632,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         </div>
       </div>
 
-      {/* Exam Requests Modal (unchanged) */}
+      {/* Exam Requests Modal */}
       {showRequestsModal && (
         <div className="fixed inset-0 bg-gray-400 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -1684,7 +1682,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
                           Exam Date (if approved)
                         </th>
                         <th className="px-4 py-2 border">Note</th>
-                      </tr>
+                      </td>
                     </thead>
                     <tbody>
                       {allExamRequests.map((req) => (
@@ -1740,7 +1738,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         </div>
       )}
 
-      {/* Exam Request Modal for existing student (unchanged) */}
+      {/* Exam Request Modal for existing student */}
       {showExamModal && examStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
@@ -1760,14 +1758,15 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
                 className="w-full border rounded p-2 text-sm"
                 required
               >
-                <option value="">Select class...</option>
-                <option value="B2">B1/B2 (Light Vehicle)</option>
-                <option value="B1">B1 (Light Vehicle Auto)</option>
+                  <option value="">Select class...</option>
+                <option value="B1">B1/B2 (Light Vehicle)</option>
+                <option value="B2">B1 (Light Vehicle Auto)</option>
                 <option value="C1">C1 (Light Truck)</option>
                 <option value="C">BC1 (Truck)</option>
                 <option value="D1">D1 (PSV)</option>
                 <option value="A1">A1 (Motorcycle)</option>
                 <option value="A">A2 (Motorcycle)</option>
+                <option value="A">A3 (Motorcycle)</option>
               </select>
             </div>
             <div className="mb-4">
@@ -1815,7 +1814,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         </div>
       )}
 
-      {/* Manual Exam Request Modal (unchanged) */}
+      {/* Manual Exam Request Modal */}
       {showManualExamModal && (
         <div className="fixed inset-0 bg-gray-300 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-green-950 rounded-lg p-6 max-w-md w-full">
@@ -1868,8 +1867,9 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
                 <option value="C1">C1 (Light Truck)</option>
                 <option value="C">BC1 (Truck)</option>
                 <option value="D1">D1 (PSV)</option>
-                <option value="D">A1 (Motorcycle)</option>
+                <option value="A1">A1 (Motorcycle)</option>
                 <option value="A">A2 (Motorcycle)</option>
+                <option value="A">A3 (Motorcycle)</option>
               </select>
             </div>
             <div className="mb-4">
@@ -1915,7 +1915,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         </div>
       )}
 
-      {/* Transfer Modal (unchanged) */}
+      {/* Transfer Modal */}
       {showTransferModal && (
         <div className="fixed inset-0 bg-[#052E16] bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white text-black rounded-lg p-6 max-w-md w-full">
@@ -2007,7 +2007,7 @@ Every great driver begins with the right foundation. Our slogan says it all: ðŸš
         </div>
       )}
 
-      {/* Report Preview Modal (unchanged) */}
+      {/* Report Preview Modal */}
       {showReportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-100 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">

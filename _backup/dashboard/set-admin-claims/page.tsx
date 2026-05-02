@@ -54,7 +54,7 @@ export default function BranchStudentPage() {
   const [editingFee, setEditingFee] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
 
-  const classOptions = ['B1/B2', 'C1', 'A1', 'A2', 'A3'];
+  const classOptions = ['B1/B2', 'B1', 'BC1', 'C1', 'D1', 'A1', 'A2', 'A3'];
 
   // --- Password handler ---
   const handlePasswordSubmit = (e: React.FormEvent) => {
