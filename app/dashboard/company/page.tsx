@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { collection, getDocs, query, orderBy, doc, deleteDoc, where } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
 
 interface BranchStats {
   id: string;
@@ -19,16 +21,13 @@ interface RecentStudent {
   enrolledAt: Date;
 }
 
-// Password – change this to any value you want
 const REQUIRED_PASSWORD = "1234";
 
 export default function CompanyDashboard() {
-  // --- Password protection state ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  // --- Existing state ---
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [branches, setBranches] = useState<BranchStats[]>([]);
@@ -39,12 +38,24 @@ export default function CompanyDashboard() {
   const [branchDetails, setBranchDetails] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
 
-  // --- All Students modal state ---
+  const [lessonStartDate, setLessonStartDate] = useState("");
+  const [lessonEndDate, setLessonEndDate] = useState("");
+  const [lessonsList, setLessonsList] = useState<any[]>([]);
+  const [loadingLessons, setLoadingLessons] = useState(false);
+  const [weeklyEnrollments, setWeeklyEnrollments] = useState<any[]>([]);
+  const [loadingWeeklyEnrollments, setLoadingWeeklyEnrollments] = useState(false);
+
   const [showAllStudentsModal, setShowAllStudentsModal] = useState(false);
   const [allStudentsList, setAllStudentsList] = useState<any[]>([]);
   const [loadingAllStudents, setLoadingAllStudents] = useState(false);
 
-  // --- Password handler ---
+  const [exportedReports, setExportedReports] = useState<any[]>([]);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showFleetInstructorModal, setShowFleetInstructorModal] = useState(false);
+  const [fleetData, setFleetData] = useState<{ instructors: any[]; vehicles: any[] }>({ instructors: [], vehicles: [] });
+  const [loadingFleetData, setLoadingFleetData] = useState(false);
+
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordInput === REQUIRED_PASSWORD) {
@@ -55,7 +66,6 @@ export default function CompanyDashboard() {
     }
   };
 
-  // --- Existing fetchStats logic ---
   const fetchStats = async (start?: string, end?: string) => {
     setLoading(true);
     let url = "/api/admin/stats";
@@ -74,11 +84,90 @@ export default function CompanyDashboard() {
     }
   };
 
+  const fetchAndCleanReports = async () => {
+    try {
+      const q = query(collection(db, "fleetReports"), orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      const now = new Date();
+      const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+      const freshReports = [];
+      for (const docSnap of snapshot.docs) {
+        const report = { id: docSnap.id, ...docSnap.data() };
+        const createdAt = new Date(report.createdAt);
+        if (createdAt >= twoDaysAgo) {
+          freshReports.push(report);
+        } else {
+          await deleteDoc(doc(db, "fleetReports", docSnap.id));
+          console.log(`Deleted expired report: ${docSnap.id}`);
+        }
+      }
+      setExportedReports(freshReports);
+    } catch (err) {
+      console.error("Failed to load/clean reports", err);
+    }
+  };
+
+  const fetchFleetInstructorData = async () => {
+    setLoadingFleetData(true);
+    try {
+      const instructorSnap = await getDocs(collection(db, "instructors"));
+      const instructors = instructorSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const vehicleSnap = await getDocs(collection(db, "vehicles"));
+      const vehicles = vehicleSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setFleetData({ instructors, vehicles });
+      setShowFleetInstructorModal(true);
+    } catch (err) {
+      alert("Failed to load fleet data");
+    } finally {
+      setLoadingFleetData(false);
+    }
+  };
+
+  const printReport = (report: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow pop-ups to print.");
+      return;
+    }
+    const headers = report.headers;
+    const rows = report.data;
+    const rowsHtml = rows.map((rowObj: any) => `
+      <tr>
+        ${headers.map((h: string) => `<td style="border:1px solid #ddd; padding:6px;">${rowObj[h]}</td>`).join('')}
+      </tr>
+    `).join('');
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Fleet Report</title>
+        <style>
+          body { font-family: Arial; margin: 20px; }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+        </style>
+        </head>
+        <body>
+          <h1>Fleet Report</h1>
+          <p>Generated: ${new Date(report.createdAt).toLocaleString()}</p>
+          <p>Filter: ${report.startDate || "any"} to ${report.endDate || "any"}</p>
+          <table>
+            <thead><tr>${headers.map((h: string) => `<th>${h}</th>`).join('')}</tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+          <button onclick="window.print()">Print</button>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     fetchStats();
+    fetchAndCleanReports();
   }, []);
 
-  // --- Fetch all students from API ---
   const fetchAllStudents = async () => {
     setLoadingAllStudents(true);
     try {
@@ -111,15 +200,111 @@ export default function CompanyDashboard() {
       const data = await res.json();
       setBranchDetails(data);
       setShowModal(true);
+      setLessonStartDate("");
+      setLessonEndDate("");
+      setLessonsList([]);
+      setWeeklyEnrollments([]);
     } catch (err) {
       alert("Could not load branch details");
+    }
+  };
+
+  // ========== ENHANCED fetchLessons ==========
+  const fetchLessons = async () => {
+    if (!selectedBranch) return;
+    if (!lessonStartDate || !lessonEndDate) {
+      alert("Please select both start and end dates for lessons.");
+      return;
+    }
+    setLoadingLessons(true);
+    try {
+      const start = new Date(lessonStartDate);
+      const end = new Date(lessonEndDate);
+      end.setHours(23, 59, 59, 999);
+      const lessonsRef = collection(db, "lessons");
+      const q = query(lessonsRef, where("branchId", "==", selectedBranch.id));
+      const snapshot = await getDocs(q);
+      console.log(`Fetched ${snapshot.size} raw lessons for branch ${selectedBranch.id}`);
+      let lessons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Filter by date range (supports both Firestore Timestamp and string)
+      lessons = lessons.filter(lesson => {
+        let lessonDate;
+        if (lesson.date && typeof lesson.date.toDate === "function") {
+          lessonDate = lesson.date.toDate();
+        } else if (lesson.date) {
+          lessonDate = new Date(lesson.date);
+        } else {
+          return false;
+        }
+        return lessonDate >= start && lessonDate <= end;
+      });
+      lessons.sort((a, b) => {
+        const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+        const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      });
+      console.log(`After filtering: ${lessons.length} lessons in date range`, lessons);
+      setLessonsList(lessons);
+      if (lessons.length === 0) {
+        alert("No lessons found for the selected period.");
+      }
+    } catch (err) {
+      console.error("Error fetching lessons:", err);
+      alert("Failed to load lessons. Check console for details.");
+    } finally {
+      setLoadingLessons(false);
+    }
+  };
+
+  // ========== ENHANCED fetchWeeklyEnrollments ==========
+  const fetchWeeklyEnrollments = async () => {
+    if (!selectedBranch) return;
+    if (!lessonStartDate || !lessonEndDate) {
+      alert("Please select both start and end dates to see enrollments.");
+      return;
+    }
+    setLoadingWeeklyEnrollments(true);
+    try {
+      const start = new Date(lessonStartDate);
+      const end = new Date(lessonEndDate);
+      end.setHours(23, 59, 59, 999);
+      const studentsRef = collection(db, "students");
+      const q = query(studentsRef, where("branchId", "==", selectedBranch.id));
+      const snapshot = await getDocs(q);
+      console.log(`Fetched ${snapshot.size} raw students for branch ${selectedBranch.id}`);
+      let enrollments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      enrollments = enrollments.filter(student => {
+        let enrolledDate;
+        if (student.enrolledAt && typeof student.enrolledAt.toDate === "function") {
+          enrolledDate = student.enrolledAt.toDate();
+        } else if (student.enrolledAt) {
+          enrolledDate = new Date(student.enrolledAt);
+        } else {
+          return false;
+        }
+        return enrolledDate >= start && enrolledDate <= end;
+      });
+      enrollments.sort((a, b) => {
+        const dateA = a.enrolledAt?.toDate ? a.enrolledAt.toDate() : new Date(a.enrolledAt);
+        const dateB = b.enrolledAt?.toDate ? b.enrolledAt.toDate() : new Date(b.enrolledAt);
+        return dateB.getTime() - dateA.getTime();
+      });
+      console.log(`After filtering: ${enrollments.length} enrollments in date range`, enrollments);
+      setWeeklyEnrollments(enrollments);
+      if (enrollments.length === 0) {
+        alert("No students enrolled in this period.");
+      }
+    } catch (err) {
+      console.error("Error fetching enrollments:", err);
+      alert("Failed to load enrollments. Check console for details.");
+    } finally {
+      setLoadingWeeklyEnrollments(false);
     }
   };
 
   const formatKsh = (amount: number) => `Ksh ${amount.toLocaleString()}`;
   const monthlyEntries = Object.entries(collectionsByMonth).sort((a, b) => a[0].localeCompare(b[0]));
 
-  // --- If not authenticated, show password prompt ---
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
@@ -145,14 +330,12 @@ export default function CompanyDashboard() {
     );
   }
 
-  // --- Original dashboard (with added button) ---
   if (loading) return <div className="p-6 text-center text-red-950">Loading company dashboard...</div>;
   if (!stats) return <div className="p-6 text-center text-red-600">Failed to load data.</div>;
 
   return (
     <>
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-        {/* Flex row: Title + View All Students button */}
         <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-amber-950">🏢 Company Dashboard</h1>
           <button
@@ -163,7 +346,6 @@ export default function CompanyDashboard() {
           </button>
         </div>
 
-        {/* KPI Cards (unchanged) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-blue-300 rounded-lg shadow p-4 border-l-8 border-green-500">
             <p className="text-sm text-gray-800">Total Revenue (All Branches)</p>
@@ -183,7 +365,6 @@ export default function CompanyDashboard() {
           </div>
         </div>
 
-        {/* Date Range Filter (unchanged) */}
         <div className="bg-gray-100 rounded-lg p-4 mb-8 text-amber-950">
           <h3 className="font-semibold mb-2">📅 Filter Revenue by Date Range</h3>
           <form onSubmit={handleDateFilter} className="flex flex-wrap gap-3 items-end">
@@ -197,7 +378,7 @@ export default function CompanyDashboard() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-amber-950">To Date</label>
+              <label className="block text-xs font-medium">To Date</label>
               <input
                 type="date"
                 value={dateRange.end}
@@ -214,7 +395,6 @@ export default function CompanyDashboard() {
           </form>
         </div>
 
-        {/* Monthly Collection Summary (unchanged) */}
         <div className="bg-white rounded-lg shadow p-4 mb-8 text-amber-950">
           <h3 className="text-lg font-semibold mb-3">📆 Monthly Collections</h3>
           {monthlyEntries.length === 0 ? (
@@ -245,7 +425,6 @@ export default function CompanyDashboard() {
           )}
         </div>
 
-        {/* Branches Overview (unchanged) */}
         <div className="bg-white rounded-lg shadow p-4 mb-8 text-amber-950">
           <h3 className="text-lg font-semibold mb-3">🏫 Branches Overview</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -266,11 +445,8 @@ export default function CompanyDashboard() {
           </div>
         </div>
 
-        {/* Recent Enrollments (unchanged) */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
-            <h3 className="text-lg font-semibold text-amber-950">🆕 Recent Enrollments (Latest 20)</h3>
-          </div>
+        <div className="bg-white rounded-lg shadow p-4 mb-8">
+          <h3 className="text-lg font-semibold mb-3 text-amber-950">🆕 Recent Enrollments (Latest 20)</h3>
           {recentEnrollments.length === 0 ? (
             <p className="text-gray-700">No recent enrollments.</p>
           ) : (
@@ -302,12 +478,64 @@ export default function CompanyDashboard() {
             </div>
           )}
         </div>
+
+        <div className="bg-gray-400 rounded-lg shadow p-4 mb-8">
+          <h3 className="text-lg font-semibold mb-3 text-amber-950">📄 Exported Fleet Reports (from Transport Manager)</h3>
+          {exportedReports.length === 0 ? (
+            <p className="text-gray-500">No reports exported yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border text-sm">
+                <thead className="bg-green-500">
+                  <tr>
+                    <th className="p-2 border">Date</th>
+                    <th className="p-2 border">Type</th>
+                    <th className="p-2 border">Date Range</th>
+                    <th className="p-2 border">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportedReports.map((report) => (
+                    <tr key={report.id}>
+                      <td className="p-2 border">{new Date(report.createdAt).toLocaleString()}</td>
+                      <td className="p-2 border">{report.type}</td>
+                      <td className="p-2 border">{report.startDate || "any"} → {report.endDate || "any"}</td>
+                      <td className="p-2 border space-x-2">
+                        <button
+                          onClick={() => { setSelectedReport(report); setShowReportModal(true); }}
+                          className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => printReport(report)}
+                          className="bg-purple-600 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Print
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-center mb-8">
+          <button
+            onClick={fetchFleetInstructorData}
+            className="bg-indigo-700 text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-800"
+          >
+            🚗 View Current Fleet & Instructors
+          </button>
+        </div>
       </div>
 
-      {/* Modal for Branch Details (unchanged) */}
+      {/* Modal for Branch Details */}
       {showModal && selectedBranch && branchDetails && (
         <div className="fixed inset-0 bg-gray-400 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-green-950 rounded-lg shadow-xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+          <div className="bg-green-950 rounded-lg shadow-xl w-full max-w-6xl max-h-[85vh] overflow-y-auto">
             <div className="sticky top-0 bg-amber-300 text-amber-950 border-b p-4 flex justify-between items-center">
               <h2 className="text-xl font-bold">{selectedBranch.name} – Full Details</h2>
               <button onClick={() => setShowModal(false)} className="text-2xl leading-none hover:text-red-600">&times;</button>
@@ -315,8 +543,9 @@ export default function CompanyDashboard() {
             <div className="p-4">
               <p className="mb-2"><strong>Total Students:</strong> {branchDetails.students?.length || 0}</p>
               <p className="mb-2"><strong>Total Payments Received (this branch):</strong> {formatKsh(branchDetails.totalPayments || 0)}</p>
+
               <h3 className="font-semibold mt-4 mb-2">Student List</h3>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto mb-6">
                 <table className="min-w-full border text-sm">
                   <thead className="bg-amber-300 text-amber-950">
                     <tr>
@@ -342,23 +571,114 @@ export default function CompanyDashboard() {
                   </tbody>
                 </table>
               </div>
+
+              <hr className="my-4 border-t-2 border-amber-500" />
+              <h3 className="text-lg font-semibold mb-3 text-amber-200">📊 Lessons Taken (Date Range)</h3>
+              <div className="flex flex-wrap gap-3 items-end mb-4">
+                <div>
+                  <label className="block text-sm text-white">From Date</label>
+                  <input
+                    type="date"
+                    value={lessonStartDate}
+                    onChange={(e) => setLessonStartDate(e.target.value)}
+                    className="p-1 border rounded text-black"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-white">To Date</label>
+                  <input
+                    type="date"
+                    value={lessonEndDate}
+                    onChange={(e) => setLessonEndDate(e.target.value)}
+                    className="p-1 border rounded text-black"
+                  />
+                </div>
+                <button
+                  onClick={fetchLessons}
+                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                >
+                  Load Lessons
+                </button>
+                <button
+                  onClick={fetchWeeklyEnrollments}
+                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                >
+                  Show Enrollments (this week)
+                </button>
+              </div>
+
+              {loadingLessons ? (
+                <p className="text-white">Loading lessons...</p>
+              ) : lessonsList.length > 0 ? (
+                <div className="overflow-x-auto mb-6">
+                  <table className="min-w-full border text-sm bg-gray-800 text-white">
+                    <thead className="bg-gray-600">
+                      <tr>
+                        <th className="p-2 border">Date</th>
+                        <th className="p-2 border">Instructor</th>
+                        <th className="p-2 border">Student Name</th>
+                        <th className="p-2 border">Lesson Type</th>
+                        <th className="p-2 border">Duration (hrs)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lessonsList.map((lesson) => (
+                        <tr key={lesson.id}>
+                          <td className="p-2 border">{lesson.date?.toDate?.()?.toLocaleDateString() || new Date(lesson.date).toLocaleDateString()}</td>
+                          <td className="p-2 border">{lesson.instructorName || "—"}</td>
+                          <td className="p-2 border">{lesson.studentName || "—"}</td>
+                          <td className="p-2 border">{lesson.type || "Driving"}</td>
+                          <td className="p-2 border">{lesson.duration || 1}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : lessonStartDate && lessonEndDate && (
+                <p className="text-gray-300 mb-4">No lessons found for the selected period.</p>
+              )}
+
+              {loadingWeeklyEnrollments ? (
+                <p className="text-white">Loading weekly enrollments...</p>
+              ) : weeklyEnrollments.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <h3 className="text-lg font-semibold mb-2 text-amber-200">📅 Students Enrolled in Selected Period</h3>
+                  <table className="min-w-full border text-sm bg-gray-800 text-white">
+                    <thead className="bg-gray-600">
+                      <tr>
+                        <th className="p-2 border">Name</th>
+                        <th className="p-2 border">Admission No</th>
+                        <th className="p-2 border">Phone</th>
+                        <th className="p-2 border">Enrolled Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weeklyEnrollments.map((student) => (
+                        <tr key={student.id}>
+                          <td className="p-2 border">{student.name}</td>
+                          <td className="p-2 border">{student.accountNumber}</td>
+                          <td className="p-2 border">{student.phone}</td>
+                          <td className="p-2 border">{student.enrolledAt?.toDate?.()?.toLocaleDateString() || new Date(student.enrolledAt).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : lessonStartDate && lessonEndDate && (
+                <p className="text-gray-300">No students enrolled in this period.</p>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* NEW: Modal for All Students (white background, well visible) */}
+      {/* Modal for All Students */}
       {showAllStudentsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[85vh] overflow-y-auto">
             <div className="sticky top-0 bg-indigo-600 text-white border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">📚</h2>
-              <button
-                onClick={() => setShowAllStudentsModal(false)}
-                className="text-2xl leading-none hover:text-red-300"
-              >
-                &times;
-              </button>
+              <h2 className="text-xl font-bold">📚 All Students</h2>
+              <button onClick={() => setShowAllStudentsModal(false)} className="text-2xl leading-none hover:text-red-300">&times;</button>
             </div>
             <div className="p-4">
               {loadingAllStudents ? (
@@ -389,9 +709,7 @@ export default function CompanyDashboard() {
                           <td className="p-2 border border-gray-300">{student.name}</td>
                           <td className="p-2 border border-gray-300">{student.accountNumber}</td>
                           <td className="p-2 border border-gray-300">{student.phone}</td>
-                          <td className="p-2 border border-gray-300">
-                            {student.enrolledAt ? new Date(student.enrolledAt).toLocaleDateString() : "N/A"}
-                          </td>
+                          <td className="p-2 border border-gray-300">{student.enrolledAt ? new Date(student.enrolledAt).toLocaleDateString() : "N/A"}</td>
                           <td className="p-2 border border-gray-300 text-right">{student.totalFee.toLocaleString()}</td>
                           <td className="p-2 border border-gray-300 text-right">{student.feePaid.toLocaleString()}</td>
                           <td className="p-2 border border-gray-300 text-right font-bold text-orange-700">{student.balance.toLocaleString()}</td>
@@ -400,6 +718,104 @@ export default function CompanyDashboard() {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for viewing a saved report */}
+      {showReportModal && selectedReport && (
+        <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-yellow-500 rounded-lg shadow-xl w-full max-w-6xl max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-indigo-600 text-gray-300 p-3 flex justify-between">
+              <h3 className="text-lg font-bold">Exported Fleet Report</h3>
+              <button onClick={() => setShowReportModal(false)} className="text-2xl">&times;</button>
+            </div>
+            <div className="p-4 overflow-x-auto text-black">
+              <table className="min-w-full border">
+                <thead className="bg-gray-400">
+                  <tr>
+                    {selectedReport.headers.map((h: string, i: number) => (
+                      <th key={i} className="border p-2">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedReport.data.map((rowObj: any, idx: number) => (
+                    <tr key={idx}>
+                      {selectedReport.headers.map((header: string, colIdx: number) => (
+                        <td key={colIdx} className="border p-2">{rowObj[header]}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for viewing live fleet & instructor data */}
+      {showFleetInstructorModal && (
+        <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-yellow-500 rounded-lg shadow-xl w-full max-w-7xl max-h-[85vh] overflow-y-auto">
+            <div className="sticky top-0 bg-indigo-600 text-gray-300 p-3 flex justify-between">
+              <h3 className="text-lg font-bold">Current Fleet & Instructors (Read-Only)</h3>
+              <button onClick={() => setShowFleetInstructorModal(false)} className="text-2xl">&times;</button>
+            </div>
+            <div className="p-4">
+              {loadingFleetData ? (
+                <p>Loading...</p>
+              ) : (
+                <>
+                  <h4 className="text-xl font-semibold mb-2">👨‍🏫 Instructors</h4>
+                  <table className="min-w-full border mb-6 text-black">
+                    <thead className="bg-gray-400">
+                      <tr>
+                        <th className="border p-2">Name</th>
+                        <th className="border p-2">Code</th>
+                        <th className="border p-2">Car Numbers</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fleetData.instructors.map((inst) => (
+                        <tr key={inst.id}>
+                          <td className="border p-2">{inst.name}</td>
+                          <td className="border p-2">{inst.code}</td>
+                          <td className="border p-2">{inst.carNumbers?.join(", ") || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <h4 className="text-xl font-semibold mb-2">🚗 Vehicles</h4>
+                  <table className="min-w-full border text-black">
+                    <thead className="bg-gray-400">
+                      <tr>
+                        <th className="border p-2">Plate</th>
+                        <th className="border p-2">Insurance Expiry</th>
+                        <th className="border p-2">Last Service (km)</th>
+                        <th className="border p-2">Current Odo</th>
+                        <th className="border p-2">Next Service</th>
+                        <th className="border p-2">Branch</th>
+                        <th className="border p-2">Instructor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fleetData.vehicles.map((v) => (
+                        <tr key={v.id}>
+                          <td className="border p-2">{v.plate}</td>
+                          <td className="border p-2">{v.insuranceExpiry}</td>
+                          <td className="border p-2">{v.lastServiceKm}</td>
+                          <td className="border p-2">{v.currentOdometer}</td>
+                          <td className="border p-2">{v.nextServiceKm}</td>
+                          <td className="border p-2">{v.branch}</td>
+                          <td className="border p-2">{v.assignedInstructorName || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
               )}
             </div>
           </div>

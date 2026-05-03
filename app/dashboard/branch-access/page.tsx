@@ -155,6 +155,12 @@ function BranchAccessContent() {
   >([]);
   const [transferLoading, setTransferLoading] = useState(false);
 
+  // === NEW: Instructor & car validation ===
+  const [instructorCode, setInstructorCode] = useState("");
+  const [carNumber, setCarNumber] = useState("");
+  const [instructorError, setInstructorError] = useState("");
+  // ====================================
+
   const MAX_LESSONS = 20;
   const MAX_LESSONS_WITH_BALANCE = 5;
   const getMinFeeForLessons = (student: Student): number => {
@@ -391,9 +397,37 @@ function BranchAccessContent() {
       (s.idNumber && s.idNumber.includes(searchQuery)),
   );
 
+  // === MODIFIED generateLesson with instructor validation ===
   const generateLesson = async () => {
     if (!selectedStudent) return;
 
+    // ---- NEW: Instructor & car number validation ----
+    if (!instructorCode.trim() || !carNumber.trim()) {
+      setInstructorError("‚ùå Please enter instructor code and car number.");
+      return;
+    }
+
+    try {
+      const instructorRef = doc(db, "instructors", instructorCode.trim().toUpperCase());
+      const instructorSnap = await getDoc(instructorRef);
+      if (!instructorSnap.exists()) {
+        setInstructorError("‚ùå Invalid instructor code. Please check and try again.");
+        return;
+      }
+      const instructorData = instructorSnap.data();
+      const validCars = instructorData.carNumbers || [];
+      if (!validCars.includes(carNumber.trim().toUpperCase())) {
+        setInstructorError(`‚ùå Car number "${carNumber}" is not assigned to instructor ${instructorData.name}.`);
+        return;
+      }
+      setInstructorError(""); // clear any previous error
+    } catch (err) {
+      setInstructorError("‚ùå Failed to validate instructor. Please try again.");
+      return;
+    }
+    // ---- End of validation ----
+
+    // ---- Original generateLesson logic (unchanged) ----
     const lessonsTaken = selectedStudent.lessons?.length || 0;
     const balance = (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
 
@@ -913,7 +947,7 @@ Every great driver begins with the right foundation. Our slogan says it all: üö
           <h3>Student List</h3>
           <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
             <thead style="background-color: #f2f2f2;">
-              <tr><th>#</th><th>Name</th><th>Admission No</th><th>Phone</th><th>Enrollment Date</th><th>Total Fee (Ksh)</th><th>Paid (Ksh)</th><th>Balance (Ksh)</th></tr>
+              <tr><th>#</th><th>Name</th><th>Admission No</th><th>Phone</th><th>Enrollment Date</th><th>Total Fee (Ksh)</th><th>Paid (Ksh)</th><th>Balance (Ksh)</th></td>
             </thead>
             <tbody>
               ${enrolledStudents
@@ -1029,7 +1063,7 @@ Every great driver begins with the right foundation. Our slogan says it all: üö
                 <td style="text-align: right;"><strong>Ksh ${studentsWithBalance.reduce((sum, s) => sum + (s.totalFee || 0), 0).toLocaleString()}</strong></td>
                 <td style="text-align: right;"><strong>Ksh ${studentsWithBalance.reduce((sum, s) => sum + s.feePaid, 0).toLocaleString()}</strong></td>
                 <td style="text-align: right;"><strong>Ksh ${totalOutstanding.toLocaleString()}</strong></td>
-              <tr>
+              </tr>
             </tfoot>
           </table>
           <hr/><p style="text-align: center;">This report lists all students with unpaid fees. Please follow up for collection.</p>
@@ -1504,7 +1538,7 @@ Every great driver begins with the right foundation. Our slogan says it all: üö
                 )}
               </div>
 
-              {/* Lessons section */}
+              {/* Lessons section - MODIFIED to include instructor & car fields */}
               <div className="bg-[#041A40] rounded-lg shadow p-4">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-semibold text-sm">üìö Lessons</h3>
@@ -1592,11 +1626,30 @@ Every great driver begins with the right foundation. Our slogan says it all: üö
                 ) : (
                   <p className="text-sm text-white mb-3">No lessons yet.</p>
                 )}
+                {/* NEW: Instructor & Car input fields */}
                 <div className="flex flex-wrap gap-2 items-end">
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-xs text-gray-200">Instructor Code</label>
+                    <input
+                      type="text"
+                      value={instructorCode}
+                      onChange={(e) => setInstructorCode(e.target.value)}
+                      className="w-full border rounded p-1 text-sm"
+                      placeholder="e.g., 001"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-xs text-gray-200">Car Number</label>
+                    <input
+                      type="text"
+                      value={carNumber}
+                      onChange={(e) => setCarNumber(e.target.value)}
+                      className="w-full border rounded p-1 text-sm"
+                      placeholder="e.g., KDN 661E"
+                    />
+                  </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-gray-200">
-                      Lesson type (optional)
-                    </label>
+                    <label className="block text-xs text-gray-200">Lesson type (optional)</label>
                     <input
                       type="text"
                       value={lessonNote}
@@ -1612,6 +1665,7 @@ Every great driver begins with the right foundation. Our slogan says it all: üö
                     Generate Lesson
                   </button>
                 </div>
+                {instructorError && <p className="text-red-400 text-xs mt-2">{instructorError}</p>}
                 <p className="text-xs text-gray-400 mt-2">
                   ‚ö†Ô∏è Max 2 lessons per day. Max total {MAX_LESSONS} lessons. If
                   balance is greater than 0, only first{" "}

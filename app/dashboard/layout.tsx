@@ -286,6 +286,16 @@ export default function DashboardClientLayout({
                 <span className="font-medium">Refund Logs</span>
               </Link>
             </li>
+             <li>
+              <Link
+                href="/dashboard/instructors"
+                onClick={resetBranchSelection}
+                className="flex items-center px-6 py-3 text-gray-700 hover:text-gray-600 hover:bg-indigo-700 transition-all duration-200 rounded-lg mx-3 group"
+              >
+                <span className="mr-3 text-xl"></span>
+                <span className="font-medium">Instructors Portal</span>
+              </Link>
+            </li>
             <li>
               <Link
                 href="/dashboard/utils/sms"

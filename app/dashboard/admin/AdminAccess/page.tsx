@@ -7,6 +7,7 @@ import {
   getDocs,
   doc,
   updateDoc,
+  deleteDoc,        // ✅ NEW: for deleting student
   query,
   orderBy,
   getDoc,
@@ -70,6 +71,7 @@ export default function AdminStudentsPage() {
     accountNumber: "",
   });
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false); // optional, for button disable
 
   // --- Password check handler ---
   const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -209,6 +211,19 @@ export default function AdminStudentsPage() {
 
     try {
       setUpdating(true);
+
+      // ----- IF-ELSE: Ensure fee paid does not exceed total fee -----
+      const totalFee = editingStudent.totalFee || 0;
+      let newFeePaid = Number(editForm.feePaid) || 0;
+
+      if (newFeePaid > totalFee) {
+        newFeePaid = totalFee;
+        alert(`Fee paid cannot exceed total fee. Adjusted to Ksh ${totalFee}.`);
+      } else {
+        // fee paid is within limit, keep as entered
+      }
+      // -------------------------------------------------------------
+
       const studentRef = doc(
         db,
         "branches",
@@ -222,7 +237,7 @@ export default function AdminStudentsPage() {
         phone: editForm.phone,
         email: editForm.email,
         idNumber: editForm.idNumber,
-        feePaid: Number(editForm.feePaid) || 0,
+        feePaid: newFeePaid,
         accountNumber: editForm.accountNumber,
       };
 
@@ -241,6 +256,27 @@ export default function AdminStudentsPage() {
       alert("Error updating student.");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  // ✅ NEW: Delete student function
+  const deleteStudent = async (student: Student) => {
+    if (!confirm(`Are you sure you want to delete ${student.name} (Admission: ${student.accountNumber})? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      setDeleting(true);
+      const studentRef = doc(db, "branches", student.branchId, "students", student.id);
+      await deleteDoc(studentRef);
+      // Remove from local state
+      const updatedStudents = students.filter(s => !(s.id === student.id && s.branchId === student.branchId));
+      setStudents(updatedStudents);
+      alert("Student deleted successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting student.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -401,10 +437,15 @@ export default function AdminStudentsPage() {
           font-size: 0.65rem !important;
         }
 
-        /* Edit button */
+        /* Buttons */
         .bg-indigo-600.hover\\:bg-indigo-700.text-white.px-3.py-1.rounded.text-xs {
           font-size: 0.6rem !important;
           padding: 0.2rem 0.6rem !important;
+        }
+        .bg-red-600.hover\\:bg-red-700.text-white.px-3.py-1.rounded.text-xs {
+          font-size: 0.6rem !important;
+          padding: 0.2rem 0.6rem !important;
+          margin-left: 0.3rem;
         }
 
         /* Modal (popup) */
@@ -441,7 +482,7 @@ export default function AdminStudentsPage() {
 
       <div className="p-6 bg-gray-50 min-h-screen" style={{ fontSize: "0.8rem" }}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin – All Students</h1>
-        <p className="text-gray-600 mb-6">Edit student details directly in the database.</p>
+        <p className="text-gray-600 mb-6">Edit or delete student details directly in the database.</p>
 
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <input
@@ -504,6 +545,13 @@ export default function AdminStudentsPage() {
                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs"
                       >
                         Edit
+                      </button>
+                      <button
+                        onClick={() => deleteStudent(student)}
+                        disabled={deleting}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs ml-1"
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
