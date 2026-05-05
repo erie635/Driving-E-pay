@@ -44,6 +44,7 @@ interface Lesson {
   id: string;
   date: Date;
   type?: string;
+  lessonNumber?: number;
 }
 
 interface ExamRequest {
@@ -74,9 +75,7 @@ function BranchAccessContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const [loading, setLoading] = useState(true);
-  const [branch, setBranch] = useState<{ id: string; name: string } | null>(
-    null,
-  );
+  const [branch, setBranch] = useState<{ id: string; name: string } | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [error, setError] = useState("");
 
@@ -85,7 +84,6 @@ function BranchAccessContent() {
   const [passwordError, setPasswordError] = useState("");
   const [isPasswordVerified, setIsPasswordVerified] = useState(false);
 
-  // Exam request state
   const [showExamModal, setShowExamModal] = useState(false);
   const [examStudent, setExamStudent] = useState<Student | null>(null);
   const [examClass, setExamClass] = useState("");
@@ -94,7 +92,6 @@ function BranchAccessContent() {
   const [examRequestError, setExamRequestError] = useState("");
   const [examRequestSuccess, setExamRequestSuccess] = useState("");
 
-  // Manual exam request state
   const [showManualExamModal, setShowManualExamModal] = useState(false);
   const [manualStudentName, setManualStudentName] = useState("");
   const [manualStudentId, setManualStudentId] = useState("");
@@ -103,18 +100,14 @@ function BranchAccessContent() {
   const [manualRequestLoading, setManualRequestLoading] = useState(false);
   const [manualNameError, setManualNameError] = useState("");
 
-  // All exam requests for this branch
   const [allExamRequests, setAllExamRequests] = useState<ExamRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
-
-  // Modal visibility for exam requests list
   const [showRequestsModal, setShowRequestsModal] = useState(false);
 
-  // Report preview modal state
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportHTML, setReportHTML] = useState("");
+  const [currentReportData, setCurrentReportData] = useState<{ headers: string[]; rows: any[][] } | null>(null);
 
-  // Date range state
   const getLocalToday = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -146,20 +139,15 @@ function BranchAccessContent() {
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
 
-  // Transfer state
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [targetBranchId, setTargetBranchId] = useState("");
   const [transferReason, setTransferReason] = useState("");
-  const [availableBranches, setAvailableBranches] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const [availableBranches, setAvailableBranches] = useState<{ id: string; name: string }[]>([]);
   const [transferLoading, setTransferLoading] = useState(false);
 
-  // === NEW: Instructor & car validation ===
   const [instructorCode, setInstructorCode] = useState("");
   const [carNumber, setCarNumber] = useState("");
   const [instructorError, setInstructorError] = useState("");
-  // ====================================
 
   const MAX_LESSONS = 20;
   const MAX_LESSONS_WITH_BALANCE = 5;
@@ -171,15 +159,107 @@ function BranchAccessContent() {
     return 0;
   };
 
+  // Helper to get current week's Monday and Sunday
+  const getCurrentWeekRange = () => {
+    const now = new Date();
+    const day = now.getDay(); // 0 = Sunday, 1 = Monday, ...
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    return { start: monday, end: sunday };
+  };
+
+  // NEW: state for current week summary (computed automatically, not user‑selectable)
+  const [weekSummary, setWeekSummary] = useState({
+    totalPayments: 0,
+    endBalance: 0,
+    lessonsCount: 0,
+  });
+
+  // Effect to calculate summary for the current week (runs on students change)
+  useEffect(() => {
+    const { start, end } = getCurrentWeekRange();
+
+    let totalPayments = 0;
+    let totalOutstanding = 0;
+    let lessonsCount = 0;
+
+    students.forEach((student) => {
+      let paymentsUpToEnd = 0;
+      if (student.payments) {
+        for (const p of student.payments) {
+          if (p.date >= start && p.date <= end) {
+            totalPayments += p.amount;
+          }
+          if (p.date <= end) {
+            paymentsUpToEnd += p.amount;
+          }
+        }
+      }
+      if (student.lessons) {
+        for (const l of student.lessons) {
+          if (l.date >= start && l.date <= end) {
+            lessonsCount++;
+          }
+        }
+      }
+      const totalFee = student.totalFee || 0;
+      const balance = totalFee - paymentsUpToEnd;
+      if (balance > 0) totalOutstanding += balance;
+    });
+
+    setWeekSummary({
+      totalPayments,
+      endBalance: totalOutstanding,
+      lessonsCount,
+    });
+  }, [students]);
+
+  // Original effect for manual range (still used by reports – unchanged)
+  useEffect(() => {
+    if (!rangeStartDate || !rangeEndDate) {
+      setRangeTotalPayments(0);
+      setRangeEndBalance(0);
+      setRangeLessonsCount(0);
+      return;
+    }
+    const start = new Date(rangeStartDate);
+    const end = new Date(rangeEndDate);
+    end.setHours(23, 59, 59, 999);
+    let totalPayments = 0;
+    let totalOutstanding = 0;
+    let lessonsCount = 0;
+    students.forEach((student) => {
+      let paymentsUpToEnd = 0;
+      if (student.payments) {
+        for (const p of student.payments) {
+          if (p.date >= start && p.date <= end) totalPayments += p.amount;
+          if (p.date <= end) paymentsUpToEnd += p.amount;
+        }
+      }
+      if (student.lessons) {
+        for (const l of student.lessons) {
+          if (l.date >= start && l.date <= end) lessonsCount++;
+        }
+      }
+      const totalFee = student.totalFee || 0;
+      const balance = totalFee - paymentsUpToEnd;
+      if (balance > 0) totalOutstanding += balance;
+    });
+    setRangeTotalPayments(totalPayments);
+    setRangeEndBalance(totalOutstanding);
+    setRangeLessonsCount(lessonsCount);
+  }, [rangeStartDate, rangeEndDate, students]);
+
   const fetchAllExamRequests = async () => {
     if (!branch?.id) return;
     setLoadingRequests(true);
     try {
-      const q = query(
-        collection(db, "examRequests"),
-        where("branchId", "==", branch.id),
-        orderBy("createdAt", "desc"),
-      );
+      const q = query(collection(db, "examRequests"), where("branchId", "==", branch.id), orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
       const requests: ExamRequest[] = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -196,10 +276,8 @@ function BranchAccessContent() {
     }
   };
 
-  // REAL-TIME STUDENT LISTENER
   useEffect(() => {
     if (!branch?.id) return;
-
     const studentsRef = collection(db, "branches", branch.id, "students");
     const unsubscribeStudents = onSnapshot(
       studentsRef,
@@ -208,18 +286,8 @@ function BranchAccessContent() {
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
           const studentId = docSnap.id;
-
-          const paymentsRef = collection(
-            db,
-            "branches",
-            branch.id,
-            "students",
-            studentId,
-            "payments",
-          );
-          const paymentsSnapshot = await getDocs(
-            query(paymentsRef, orderBy("date", "desc")),
-          );
+          const paymentsRef = collection(db, "branches", branch.id, "students", studentId, "payments");
+          const paymentsSnapshot = await getDocs(query(paymentsRef, orderBy("date", "desc")));
           const payments: Payment[] = paymentsSnapshot.docs.map((p) => {
             const pData = p.data();
             return {
@@ -231,27 +299,17 @@ function BranchAccessContent() {
               reference: pData.reference,
             };
           });
-
-          const lessonsRef = collection(
-            db,
-            "branches",
-            branch.id,
-            "students",
-            studentId,
-            "lessons",
-          );
-          const lessonsSnapshot = await getDocs(
-            query(lessonsRef, orderBy("date", "desc")),
-          );
+          const lessonsRef = collection(db, "branches", branch.id, "students", studentId, "lessons");
+          const lessonsSnapshot = await getDocs(query(lessonsRef, orderBy("date", "desc")));
           const lessons: Lesson[] = lessonsSnapshot.docs.map((l) => {
             const lData = l.data();
             return {
               id: l.id,
               date: toDate(lData.date) || new Date(),
               type: lData.type,
+              lessonNumber: lData.lessonNumber,
             };
           });
-
           studentsList.push({
             id: studentId,
             name: data.name || "No name",
@@ -271,20 +329,17 @@ function BranchAccessContent() {
       (err) => {
         console.error("Real-time student listener error:", err);
         setError("Failed to load students in real-time.");
-      },
+      }
     );
-
     return () => unsubscribeStudents();
   }, [branch?.id]);
 
-  // Initial verification and branch setup
   useEffect(() => {
     if (!token) {
       setError("No invitation token provided.");
       setLoading(false);
       return;
     }
-
     const verifyAndFetch = async () => {
       try {
         const res = await fetch(`/api/invite/verify?token=${token}`);
@@ -292,7 +347,6 @@ function BranchAccessContent() {
         if (!res.ok) throw new Error(data.error);
         const branchInfo = data.branch;
         setBranch(branchInfo);
-
         const inviteDocRef = doc(db, "branchInvitations", token);
         const inviteDoc = await getDoc(inviteDocRef);
         if (inviteDoc.exists()) {
@@ -300,7 +354,6 @@ function BranchAccessContent() {
         } else {
           throw new Error("Invitation not found");
         }
-
         await fetchAllExamRequests();
       } catch (err: any) {
         setError(err.message || "Invalid or expired invitation.");
@@ -308,7 +361,6 @@ function BranchAccessContent() {
         setLoading(false);
       }
     };
-
     verifyAndFetch();
   }, [token]);
 
@@ -318,9 +370,7 @@ function BranchAccessContent() {
         const res = await fetch("/api/branches/list");
         const data = await res.json();
         if (data.branches && branch?.id) {
-          setAvailableBranches(
-            data.branches.filter((b: any) => b.id !== branch.id),
-          );
+          setAvailableBranches(data.branches.filter((b: any) => b.id !== branch.id));
         }
       } catch (err) {
         console.error("Could not fetch branches");
@@ -328,55 +378,6 @@ function BranchAccessContent() {
     };
     if (showTransferModal) fetchBranches();
   }, [showTransferModal, branch?.id]);
-
-  // Range totals (payments, balance, lessons)
-  useEffect(() => {
-    if (!rangeStartDate || !rangeEndDate) {
-      setRangeTotalPayments(0);
-      setRangeEndBalance(0);
-      setRangeLessonsCount(0);
-      return;
-    }
-
-    const start = new Date(rangeStartDate);
-    const end = new Date(rangeEndDate);
-    end.setHours(23, 59, 59, 999);
-
-    let totalPayments = 0;
-    let totalOutstanding = 0;
-    let lessonsCount = 0;
-
-    students.forEach((student) => {
-      let paymentsUpToEnd = 0;
-
-      if (student.payments) {
-        for (const p of student.payments) {
-          if (p.date >= start && p.date <= end) {
-            totalPayments += p.amount;
-          }
-          if (p.date <= end) {
-            paymentsUpToEnd += p.amount;
-          }
-        }
-      }
-
-      if (student.lessons) {
-        for (const l of student.lessons) {
-          if (l.date >= start && l.date <= end) {
-            lessonsCount++;
-          }
-        }
-      }
-
-      const totalFee = student.totalFee || 0;
-      const balance = totalFee - paymentsUpToEnd;
-      if (balance > 0) totalOutstanding += balance;
-    });
-
-    setRangeTotalPayments(totalPayments);
-    setRangeEndBalance(totalOutstanding);
-    setRangeLessonsCount(lessonsCount);
-  }, [rangeStartDate, rangeEndDate, students]);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,22 +392,17 @@ function BranchAccessContent() {
   const filteredStudents = students.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.accountNumber &&
-        s.accountNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (s.accountNumber && s.accountNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (s.phone && s.phone.includes(searchQuery)) ||
-      (s.idNumber && s.idNumber.includes(searchQuery)),
+      (s.idNumber && s.idNumber.includes(searchQuery))
   );
 
-  // === MODIFIED generateLesson with instructor validation ===
   const generateLesson = async () => {
     if (!selectedStudent) return;
-
-    // ---- NEW: Instructor & car number validation ----
     if (!instructorCode.trim() || !carNumber.trim()) {
       setInstructorError("❌ Please enter instructor code and car number.");
       return;
     }
-
     try {
       const instructorRef = doc(db, "instructors", instructorCode.trim().toUpperCase());
       const instructorSnap = await getDoc(instructorRef);
@@ -420,73 +416,58 @@ function BranchAccessContent() {
         setInstructorError(`❌ Car number "${carNumber}" is not assigned to instructor ${instructorData.name}.`);
         return;
       }
-      setInstructorError(""); // clear any previous error
+      setInstructorError("");
     } catch (err) {
       setInstructorError("❌ Failed to validate instructor. Please try again.");
       return;
     }
-    // ---- End of validation ----
-
-    // ---- Original generateLesson logic (unchanged) ----
     const lessonsTaken = selectedStudent.lessons?.length || 0;
     const balance = (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
-
     if (lessonsTaken >= MAX_LESSONS) {
-      setLessonError(
-        `❌ Student has already completed ${MAX_LESSONS} lessons (maximum).`,
-      );
+      setLessonError(`❌ Student has already completed ${MAX_LESSONS} lessons (maximum).`);
       setLessonSuccess("");
       return;
     }
-
     if (balance > 0 && lessonsTaken >= MAX_LESSONS_WITH_BALANCE) {
       setLessonError(
-        `❌ Student has an outstanding balance of Ksh ${balance}. Please clear the balance first to continue lessons. (Max ${MAX_LESSONS_WITH_BALANCE} lessons allowed with balance.)`,
+        `❌ Student has an outstanding balance of Ksh ${balance}. Please clear the balance first to continue lessons. (Max ${MAX_LESSONS_WITH_BALANCE} lessons allowed with balance.)`
       );
       setLessonSuccess("");
       return;
     }
-
     const minRequiredFee = getMinFeeForLessons(selectedStudent);
     if (selectedStudent.feePaid < minRequiredFee) {
       setLessonError(
-        `❌ Student has paid Ksh ${selectedStudent.feePaid.toLocaleString()} but needs at least Ksh ${minRequiredFee.toLocaleString()} to take lessons. Please pay the required amount first.`,
+        `❌ Student has paid Ksh ${selectedStudent.feePaid.toLocaleString()} but needs at least Ksh ${minRequiredFee.toLocaleString()} to take lessons. Please pay the required amount first.`
       );
       setLessonSuccess("");
       return;
     }
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const lessonsToday =
-      selectedStudent.lessons?.filter((l) => {
-        const lessonDate = new Date(l.date);
-        lessonDate.setHours(0, 0, 0, 0);
-        return lessonDate.getTime() === today.getTime();
-      }) || [];
+    const lessonsToday = selectedStudent.lessons?.filter((l) => {
+      const lessonDate = new Date(l.date);
+      lessonDate.setHours(0, 0, 0, 0);
+      return lessonDate.getTime() === today.getTime();
+    }) || [];
     if (lessonsToday.length >= 2) {
       setLessonError("❌ Student cannot take more than 2 lessons per day.");
       setLessonSuccess("");
       return;
     }
-
+    const lessonNumber = lessonsTaken + 1;
     try {
-      const lessonsRef = collection(
-        db,
-        "branches",
-        branch!.id,
-        "students",
-        selectedStudent.id,
-        "lessons",
-      );
+      const lessonsRef = collection(db, "branches", branch!.id, "students", selectedStudent.id, "lessons");
       await addDoc(lessonsRef, {
         date: Timestamp.now(),
         type: lessonNote || "General",
+        lessonNumber: lessonNumber,
       });
       const newLesson: Lesson = {
         id: Date.now().toString(),
         date: new Date(),
         type: lessonNote,
+        lessonNumber,
       };
       const updatedLessons = [...(selectedStudent.lessons || []), newLesson];
       setSelectedStudent({ ...selectedStudent, lessons: updatedLessons });
@@ -511,19 +492,8 @@ function BranchAccessContent() {
       return;
     }
     try {
-      const paymentsRef = collection(
-        db,
-        "branches",
-        branch!.id,
-        "students",
-        selectedStudent.id,
-        "payments",
-      );
-      const paymentData: any = {
-        amount,
-        date: Timestamp.now(),
-        method: paymentMethod,
-      };
+      const paymentsRef = collection(db, "branches", branch!.id, "students", selectedStudent.id, "payments");
+      const paymentData: any = { amount, date: Timestamp.now(), method: paymentMethod };
       if (paymentMethod === "mpesa") {
         paymentData.reference = mpesaCode;
         paymentData.note = `M-Pesa: ${mpesaCode}`;
@@ -531,35 +501,20 @@ function BranchAccessContent() {
         paymentData.note = "Cash payment";
       }
       await addDoc(paymentsRef, paymentData);
-
       const newFeePaid = selectedStudent.feePaid + amount;
-      const studentDocRef = doc(
-        db,
-        "branches",
-        branch!.id,
-        "students",
-        selectedStudent.id,
-      );
+      const studentDocRef = doc(db, "branches", branch!.id, "students", selectedStudent.id);
       await updateDoc(studentDocRef, { feePaid: newFeePaid });
-
       const newPayment: Payment = {
         id: Date.now().toString(),
         amount,
         date: new Date(),
         method: paymentMethod,
         reference: paymentMethod === "mpesa" ? mpesaCode : undefined,
-        note:
-          paymentMethod === "mpesa" ? `M-Pesa: ${mpesaCode}` : "Cash payment",
+        note: paymentMethod === "mpesa" ? `M-Pesa: ${mpesaCode}` : "Cash payment",
       };
       const updatedPayments = [newPayment, ...(selectedStudent.payments || [])];
-      setSelectedStudent({
-        ...selectedStudent,
-        feePaid: newFeePaid,
-        payments: updatedPayments,
-      });
-      setPaymentSuccess(
-        `✅ Ksh ${amount} recorded as ${paymentMethod === "mpesa" ? "M-Pesa" : "Cash"}!`,
-      );
+      setSelectedStudent({ ...selectedStudent, feePaid: newFeePaid, payments: updatedPayments });
+      setPaymentSuccess(`✅ Ksh ${amount} recorded as ${paymentMethod === "mpesa" ? "M-Pesa" : "Cash"}!`);
       setPaymentError("");
       setNewPaymentAmount("");
       setMpesaCode("");
@@ -577,9 +532,7 @@ function BranchAccessContent() {
     }
     const lessonCount = examStudent.lessons?.length || 0;
     if (lessonCount < 10) {
-      setExamRequestError(
-        `❌ Student has only ${lessonCount} lesson(s). Must complete at least 10 lessons before requesting an exam.`,
-      );
+      setExamRequestError(`❌ Student has only ${lessonCount} lesson(s). Must complete at least 10 lessons before requesting an exam.`);
       return;
     }
     setExamRequestLoading(true);
@@ -618,29 +571,21 @@ function BranchAccessContent() {
       return;
     }
     const trimmedName = manualStudentName.trim().toLowerCase();
-    const matchedStudent = students.find(
-      (s) => s.name.toLowerCase() === trimmedName,
-    );
+    const matchedStudent = students.find((s) => s.name.toLowerCase() === trimmedName);
     if (!matchedStudent) {
-      setManualNameError(
-        `❌ "${manualStudentName.trim()}" not found in ${branch?.name} records. Please check the spelling or register the student first.`,
-      );
+      setManualNameError(`❌ "${manualStudentName.trim()}" not found in ${branch?.name} records. Please check the spelling or register the student first.`);
       return;
     }
     if (manualStudentId.trim()) {
       const providedId = manualStudentId.trim();
       if (matchedStudent.idNumber && matchedStudent.idNumber !== providedId) {
-        setManualNameError(
-          `❌ ID number mismatch. Student "${matchedStudent.name}" has ID ${matchedStudent.idNumber}. Please correct.`,
-        );
+        setManualNameError(`❌ ID number mismatch. Student "${matchedStudent.name}" has ID ${matchedStudent.idNumber}. Please correct.`);
         return;
       }
     }
     const lessonCount = matchedStudent.lessons?.length || 0;
     if (lessonCount < 10) {
-      setManualNameError(
-        `❌ Student "${matchedStudent.name}" has only ${lessonCount} lesson(s). Must complete at least 10 lessons before requesting an exam.`,
-      );
+      setManualNameError(`❌ Student "${matchedStudent.name}" has only ${lessonCount} lesson(s). Must complete at least 10 lessons before requesting an exam.`);
       return;
     }
     if (!manualExamClass) {
@@ -651,8 +596,7 @@ function BranchAccessContent() {
     try {
       await addDoc(collection(db, "examRequests"), {
         studentName: matchedStudent.name,
-        studentIdNumber:
-          matchedStudent.idNumber || manualStudentId.trim() || "Not provided",
+        studentIdNumber: matchedStudent.idNumber || manualStudentId.trim() || "Not provided",
         branchId: branch!.id,
         branchName: branch!.name,
         requestedClass: manualExamClass,
@@ -676,11 +620,9 @@ function BranchAccessContent() {
     }
   };
 
-  // PRINT FUNCTIONS
   const printReceipt = (payment: Payment) => {
     if (!selectedStudent) return;
-    const remainingBalance =
-      (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
+    const remainingBalance = (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`
@@ -717,22 +659,16 @@ Every great driver begins with the right foundation. Our slogan says it all: �
 
   const printLessonTicket = (lesson: Lesson) => {
     if (!selectedStudent) return;
-
     const allLessons = [...(selectedStudent.lessons || [])];
     allLessons.sort((a, b) => a.date.getTime() - b.date.getTime());
     const lessonIndex = allLessons.findIndex((l) => l.id === lesson.id);
-    const lessonNumber = lessonIndex + 1;
-
-    const remainingBalance =
-      (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
+    const lessonNumber = lesson.lessonNumber || lessonIndex + 1;
+    const remainingBalance = (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-
-    const completionMessage =
-      lessonNumber === 20
-        ? "🎉 Your lessons are finished! You can now go for NTSA government exams. Good luck! 🚗✅"
-        : "Valid for one lesson. Please present this ticket.";
-
+    const completionMessage = lessonNumber === 20
+      ? "🎉 Your lessons are finished! You can now go for NTSA government exams. Good luck! 🚗✅"
+      : "Valid for one lesson. Please present this ticket.";
     printWindow.document.write(`
       <html>
         <head><title>Lesson Ticket</title></head>
@@ -741,7 +677,7 @@ Every great driver begins with the right foundation. Our slogan says it all: �
             <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
           </div>
           <p style="font-style: italic; color: #2c3e50; margin: 10px 0 20px 0; font-size: 1.1em;">
-            🚗tart your journey with Harmflow Driving School – where safety meets confidence.
+            🚗 Start your journey with Harmflow Driving School – where safety meets confidence.
 Every great driver begins with the right foundation. Our slogan says it all: 🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
           </p>
           <h2>${branch?.name} - Lesson Ticket</h2>
@@ -764,61 +700,41 @@ Every great driver begins with the right foundation. Our slogan says it all: �
     printWindow.document.close();
   };
 
-  // REPORT FUNCTIONS
   const generateReport = () => {
     if (!reportStartDate || !reportEndDate) {
       alert("Please select both From and To dates.");
       return;
     }
-
     const start = new Date(reportStartDate);
     const end = new Date(reportEndDate);
     end.setHours(23, 59, 59, 999);
-
     let totalPaidInPeriod = 0;
     let totalOutstandingAsOfEnd = 0;
     let enrolledStudentsOutstanding = 0;
     let enrolledCount = 0;
-    const studentReports: {
-      name: string;
-      account: string;
-      phone: string;
-      paidInPeriod: number;
-      outstandingAsOfEnd: number;
-    }[] = [];
-
+    const studentReports: { name: string; account: string; phone: string; paidInPeriod: number; outstandingAsOfEnd: number }[] = [];
     students.forEach((student) => {
       let paidInRange = 0;
       let paymentsUpToEnd = 0;
-
       if (student.payments && student.payments.length > 0) {
         for (const p of student.payments) {
-          if (p.date >= start && p.date <= end) {
-            paidInRange += p.amount;
-          }
-          if (p.date <= end) {
-            paymentsUpToEnd += p.amount;
-          }
+          if (p.date >= start && p.date <= end) paidInRange += p.amount;
+          if (p.date <= end) paymentsUpToEnd += p.amount;
         }
       }
-
       const totalFee = student.totalFee || 0;
       let outstandingAsOfEnd = totalFee - paymentsUpToEnd;
       if (outstandingAsOfEnd < 0) outstandingAsOfEnd = 0;
-
       totalPaidInPeriod += paidInRange;
       totalOutstandingAsOfEnd += outstandingAsOfEnd;
-
       if (student.createdAt) {
         const enrollmentDate = new Date(student.createdAt);
         if (enrollmentDate >= start && enrollmentDate <= end) {
           const currentBalance = (student.totalFee || 0) - student.feePaid;
-          enrolledStudentsOutstanding +=
-            currentBalance > 0 ? currentBalance : 0;
+          enrolledStudentsOutstanding += currentBalance > 0 ? currentBalance : 0;
           enrolledCount++;
         }
       }
-
       studentReports.push({
         name: student.name,
         account: student.accountNumber || "N/A",
@@ -827,57 +743,71 @@ Every great driver begins with the right foundation. Our slogan says it all: �
         outstandingAsOfEnd: outstandingAsOfEnd,
       });
     });
-
+    const headers = ["Name", "Admission No", "Phone", "Paid (Period)", "Outstanding (as of end date)"];
+    const rows = studentReports.map((s) => [s.name, s.account, s.phone, `Ksh ${s.paidInPeriod.toLocaleString()}`, `Ksh ${s.outstandingAsOfEnd.toLocaleString()}`]);
+    rows.push(["", "", "", "", ""]);
+    rows.push(["", "", "", "Total Paid (Period):", `Ksh ${totalPaidInPeriod.toLocaleString()}`]);
+    rows.push(["", "", "", "Total Outstanding (as of end):", `Ksh ${totalOutstandingAsOfEnd.toLocaleString()}`]);
+    rows.push(["", "", "", "Outstanding (enrolled in period):", `Ksh ${enrolledStudentsOutstanding.toLocaleString()} (${enrolledCount} students)`]);
+    setCurrentReportData({ headers, rows });
+    const currentDate = new Date().toLocaleDateString();
     const html = `
-      <html>
-        <head><title>Debt & Revenue Report</title></head>
-        <body style="font-family: Arial, sans-serif; padding: 20px;">
-          <div style="display: flex; justify-content: center; margin-bottom: 15px;">
-            <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
-          </div>
-          <p style="font-style: italic; color: #2c3e50; margin: 5px 0 0 0; text-align: center; font-size: 0.9em;">
-            🚗 tart your journey with Harmflow Driving School – where safety meets confidence.
+<!DOCTYPE html>
+<html>
+<head><title>Financial Report</title></head>
+<body style="font-family: Arial, sans-serif; padding: 20px;">
+  <div style="display: flex; justify-content: center; margin-bottom: 15px;">
+    <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
+  </div>
+  <p style="font-style: italic; color: #2c3e50; margin: 5px 0 0 0; text-align: center; font-size: 0.9em;">
+    🚗 Start your journey with Harmflow Driving School – where safety meets confidence.
 Every great driver begins with the right foundation. Our slogan says it all: 🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
-          </p>
-          <h2 style="text-align: center;">${branch?.name} - Financial Report (Payments in Period)</h2>
-          <p><strong>Period:</strong> ${reportStartDate} to ${reportEndDate}</p>
-          <hr/>
-          <h3>Summary</h3>
-          <p><strong>Total Payments Collected:</strong> Ksh ${totalPaidInPeriod.toLocaleString()}</p>
-          <p><strong>Total Outstanding (all students, as of end date):</strong> Ksh ${totalOutstandingAsOfEnd.toLocaleString()}</p>
-          <p><strong>Total Outstanding (students enrolled in period):</strong> Ksh ${enrolledStudentsOutstanding.toLocaleString()} (${enrolledCount} students)</p>
-          <hr/>
-          <h3>Student Details</h3>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
-            <thead style="background-color: #f2f2f2;">
-              <tr><th>Name</th><th>Admission No</th><th>Phone</th><th>Paid (Period)</th><th>Outstanding (as of end date)</th></tr>
-            </thead>
-            <tbody>
-              ${studentReports
-                .map(
-                  (s) => `
-                <tr>
-                  <td style="padding: 4px;">${s.name}</td>
-                  <td style="padding: 4px;">${s.account}</td>
-                  <td style="padding: 4px;">${s.phone}</td>
-                  <td style="padding: 4px; text-align: right;">Ksh ${s.paidInPeriod.toLocaleString()}</td>
-                  <td style="padding: 4px; text-align: right;">Ksh ${s.outstandingAsOfEnd.toLocaleString()}</td>
-                </tr>
-              `,
-                )
-                .join("")}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="3"><strong>TOTALS:</strong></td>
-                <td style="text-align: right;"><strong>Ksh ${totalPaidInPeriod.toLocaleString()}</strong></td>
-                <td style="text-align: right;"><strong>Ksh ${totalOutstandingAsOfEnd.toLocaleString()}</strong></td>
-              </tr>
-            </tfoot>
-          </table>
-          <button onclick="window.print();window.close();" style="margin-top: 20px;">Print Report</button>
-        </body>
-      </html>
+  </p>
+  <h2 style="text-align: center;">${branch?.name} - Financial Report (Payments in Period)</h2>
+  <p style="text-align: center;"><strong>Period:</strong> ${reportStartDate} to ${reportEndDate}</p>
+  <p style="text-align: center;"><strong>Report Date:</strong> ${currentDate}</p>
+  <hr/>
+  <h3>Summary</h3>
+  <p><strong>Total Payments Collected:</strong> Ksh ${totalPaidInPeriod.toLocaleString()}</p>
+  <p><strong>Total Outstanding (all students, as of end date):</strong> Ksh ${totalOutstandingAsOfEnd.toLocaleString()}</p>
+  <p><strong>Total Outstanding (students enrolled in period):</strong> Ksh ${enrolledStudentsOutstanding.toLocaleString()} (${enrolledCount} students)</p>
+  <hr/>
+  <h3>Student Details</h3>
+  <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
+    <thead style="background-color: #f2f2f2;">
+        <tr>
+          <th>Name</th>
+          <th>Admission No</th>
+          <th>Phone</th>
+          <th>Paid (Period)</th>
+          <th>Outstanding (as of end date)</th>
+        </tr>
+    </thead>
+    <tbody>
+      ${studentReports
+        .map(
+          (s) => `
+          <tr>
+            <td style="padding: 4px;">${s.name}</td>
+            <td style="padding: 4px;">${s.account}</td>
+            <td style="padding: 4px;">${s.phone}</td>
+            <td style="padding: 4px; text-align: right;">Ksh ${s.paidInPeriod.toLocaleString()}</td>
+            <td style="padding: 4px; text-align: right;">Ksh ${s.outstandingAsOfEnd.toLocaleString()}</td>
+          </tr>
+        `
+        )
+        .join("")}
+    </tbody>
+    <tfoot style="background-color: #f9f9f9;">
+      <tr>
+        <td colspan="3"><strong>TOTALS:</strong></td>
+        <td style="text-align: right;"><strong>Ksh ${totalPaidInPeriod.toLocaleString()}</strong></td>
+        <td style="text-align: right;"><strong>Ksh ${totalOutstandingAsOfEnd.toLocaleString()}</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>
     `;
     setReportHTML(html);
     setShowReportModal(true);
@@ -888,28 +818,23 @@ Every great driver begins with the right foundation. Our slogan says it all: �
       alert("Please select both From and To dates.");
       return;
     }
-
     const start = new Date(reportStartDate);
     const end = new Date(reportEndDate);
     end.setHours(23, 59, 59, 999);
-
     const enrolledStudents = students.filter((student) => {
       if (!student.createdAt) return false;
       const enrollmentDate = new Date(student.createdAt);
       return enrollmentDate >= start && enrollmentDate <= end;
     });
-
     if (enrolledStudents.length === 0) {
       alert("No students were enrolled in the selected date range.");
       return;
     }
-
     enrolledStudents.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return dateA - dateB;
     });
-
     let totalFees = 0,
       totalPaid = 0,
       totalBalance = 0;
@@ -921,7 +846,17 @@ Every great driver begins with the right foundation. Our slogan says it all: �
       totalPaid += paid;
       totalBalance += balance > 0 ? balance : 0;
     });
-
+    const headers = ["#", "Name", "Admission No", "Phone", "Enrollment Date", "Total Fee (Ksh)", "Paid (Ksh)", "Balance (Ksh)"];
+    const rows = enrolledStudents.map((student, idx) => {
+      const fee = student.totalFee || 0;
+      const paid = student.feePaid;
+      const balance = fee - paid;
+      const enrollDate = student.createdAt ? new Date(student.createdAt).toLocaleDateString() : "Unknown";
+      return [idx + 1, student.name, student.accountNumber || "N/A", student.phone || "N/A", enrollDate, `Ksh ${fee.toLocaleString()}`, `Ksh ${paid.toLocaleString()}`, `Ksh ${balance.toLocaleString()}`];
+    });
+    rows.push(["", "", "", "", "", "", "", ""]);
+    rows.push(["", "", "", "", "TOTALS:", `Ksh ${totalFees.toLocaleString()}`, `Ksh ${totalPaid.toLocaleString()}`, `Ksh ${totalBalance.toLocaleString()}`]);
+    setCurrentReportData({ headers, rows });
     const currentDate = new Date().toLocaleDateString();
     const html = `
       <html>
@@ -931,7 +866,7 @@ Every great driver begins with the right foundation. Our slogan says it all: �
             <img src="/logopds.jpg" alt="Logo" style="width: 80px; height: auto; display: block; margin: 0 auto;" />
           </div>
           <p style="font-style: italic; color: #2c3e50; margin: 5px 0 0 0; text-align: center; font-size: 0.9em;">
-            🚗 tart your journey with Harmflow Driving School – where safety meets confidence.
+            🚗 Start your journey with Harmflow Driving School – where safety meets confidence.
 Every great driver begins with the right foundation. Our slogan says it all: 🚗 Drive safely, learn confidently – Harmflow Driving School: Your journey to excellence begins here. 🚦
           </p>
           <h2 style="text-align: center;">${branch?.name} - Students Enrolled in Period</h2>
@@ -946,18 +881,14 @@ Every great driver begins with the right foundation. Our slogan says it all: �
           <hr/>
           <h3>Student List</h3>
           <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
-            <thead style="background-color: #f2f2f2;">
-              <tr><th>#</th><th>Name</th><th>Admission No</th><th>Phone</th><th>Enrollment Date</th><th>Total Fee (Ksh)</th><th>Paid (Ksh)</th><th>Balance (Ksh)</th></td>
-            </thead>
+            <thead style="background-color: #f2f2f2;"><tr><th>#</th><th>Name</th><th>Admission No</th><th>Phone</th><th>Enrollment Date</th><th>Total Fee (Ksh)</th><th>Paid (Ksh)</th><th>Balance (Ksh)</th><tr></thead>
             <tbody>
               ${enrolledStudents
                 .map((student, idx) => {
                   const fee = student.totalFee || 0;
                   const paid = student.feePaid;
                   const balance = fee - paid;
-                  const enrollDate = student.createdAt
-                    ? new Date(student.createdAt).toLocaleDateString()
-                    : "Unknown";
+                  const enrollDate = student.createdAt ? new Date(student.createdAt).toLocaleDateString() : "Unknown";
                   return `
                   <tr>
                     <td style="text-align: center;">${idx + 1}</td>
@@ -983,7 +914,6 @@ Every great driver begins with the right foundation. Our slogan says it all: �
             </tfoot>
           </table>
           <hr/><p style="text-align: center;">This report includes only students whose enrollment date falls within the selected period.</p>
-          <button onclick="window.print();window.close();" style="display: block; margin: 20px auto; padding: 8px 16px;">Print Report</button>
         </body>
       </html>
     `;
@@ -996,24 +926,27 @@ Every great driver begins with the right foundation. Our slogan says it all: �
       const balance = (student.totalFee || 0) - student.feePaid;
       return balance > 0;
     });
-
     if (studentsWithBalance.length === 0) {
       alert("No students have outstanding balances.");
       return;
     }
-
     studentsWithBalance.sort((a, b) => {
       const balanceA = (a.totalFee || 0) - a.feePaid;
       const balanceB = (b.totalFee || 0) - b.feePaid;
       return balanceB - balanceA;
     });
-
-    const totalOutstanding = studentsWithBalance.reduce(
-      (sum, student) => sum + ((student.totalFee || 0) - student.feePaid),
-      0,
-    );
+    const totalOutstanding = studentsWithBalance.reduce((sum, student) => sum + ((student.totalFee || 0) - student.feePaid), 0);
     const currentDate = new Date().toLocaleDateString();
-
+    const headers = ["#", "Name", "Admission No", "Phone", "Total Fee (Ksh)", "Paid (Ksh)", "Balance (Ksh)"];
+    const rows = studentsWithBalance.map((student, idx) => {
+      const totalFee = student.totalFee || 0;
+      const paid = student.feePaid;
+      const balance = totalFee - paid;
+      return [idx + 1, student.name, student.accountNumber || "N/A", student.phone || "N/A", `Ksh ${totalFee.toLocaleString()}`, `Ksh ${paid.toLocaleString()}`, `Ksh ${balance.toLocaleString()}`];
+    });
+    rows.push(["", "", "", "", "", "", ""]);
+    rows.push(["", "", "", "", "TOTALS:", `Ksh ${studentsWithBalance.reduce((sum, s) => sum + (s.totalFee || 0), 0).toLocaleString()}`, `Ksh ${studentsWithBalance.reduce((sum, s) => sum + s.feePaid, 0).toLocaleString()}`, `Ksh ${totalOutstanding.toLocaleString()}`]);
+    setCurrentReportData({ headers, rows });
     const html = `
       <html>
         <head><title>Students with Outstanding Balance</title></head>
@@ -1034,9 +967,7 @@ Every great driver begins with the right foundation. Our slogan says it all: �
           <hr/>
           <h3>Student List</h3>
           <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
-            <thead style="background-color: #f2f2f2;">
-              <tr><th>#</th><th>Name</th><th>Admission No</th><th>Phone</th><th>Total Fee (Ksh)</th><th>Paid (Ksh)</th><th>Balance (Ksh)</th></tr>
-            </thead>
+            <thead style="background-color: #f2f2f2;"><tr><th>#</th><th>Name</th><th>Admission No</th><th>Phone</th><th>Total Fee (Ksh)</th><th>Paid (Ksh)</th><th>Balance (Ksh)</th></tr></thead>
             <tbody>
               ${studentsWithBalance
                 .map((student, idx) => {
@@ -1065,15 +996,76 @@ Every great driver begins with the right foundation. Our slogan says it all: �
                 <td style="text-align: right;"><strong>Ksh ${totalOutstanding.toLocaleString()}</strong></td>
               </tr>
             </tfoot>
-          </table>
+          </td>
           <hr/><p style="text-align: center;">This report lists all students with unpaid fees. Please follow up for collection.</p>
-          <button onclick="window.print();window.close();" style="display: block; margin: 20px auto; padding: 8px 16px;">Print Report</button>
         </body>
       </html>
     `;
     setReportHTML(html);
     setShowReportModal(true);
   };
+
+  const saveReportToFirestore = async () => {
+    if (!currentReportData || !branch) return;
+    const { headers, rows } = currentReportData;
+    const rowsAsObjects = rows.map(row => {
+      const obj: Record<string, any> = {};
+      headers.forEach((header, idx) => {
+        obj[header] = row[idx];
+      });
+      return obj;
+    });
+    let reportCategory = "Branch Report";
+    if (reportHTML.includes("Financial Report (Payments in Period)")) {
+      reportCategory = "Payments in Period";
+    } else if (reportHTML.includes("Students Enrolled in Period")) {
+      reportCategory = "Students Enrolled";
+    } else if (reportHTML.includes("Students with Outstanding Balance")) {
+      reportCategory = "Students with Balance";
+    }
+    const reportType = `${branch.name} - ${reportCategory}`;
+    try {
+      await addDoc(collection(db, "fleetReports"), {
+        headers,
+        data: rowsAsObjects,
+        startDate: reportStartDate || "",
+        endDate: reportEndDate || "",
+        type: reportType,
+        createdAt: new Date().toISOString(),
+        branchId: branch.id,
+        branchName: branch.name,
+      });
+      console.log("Report saved for admin viewing");
+    } catch (err) {
+      console.error("Failed to save report to admin", err);
+    }
+  };
+
+  const exportToExcel = () => {
+    if (!currentReportData) return;
+    const { headers, rows } = currentReportData;
+    let html = `<tr><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>`;
+    rows.forEach((row) => {
+      html += `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join("")}</tr>`;
+    });
+    html += `</tbody></table>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `report_${new Date().toISOString().slice(0, 19)}.xls`;
+    a.click();
+    URL.revokeObjectURL(url);
+    saveReportToFirestore();
+  };
+
+  const escapeHtml = (text: string) =>
+    text.replace(/[&<>]/g, function (m) {
+      if (m === "&") return "&amp;";
+      if (m === "<") return "&lt;";
+      if (m === ">") return "&gt;";
+      return m;
+    });
 
   const handlePrintFromModal = () => {
     const printWindow = window.open("", "_blank");
@@ -1102,25 +1094,21 @@ Every great driver begins with the right foundation. Our slogan says it all: �
   if (!isPasswordVerified) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md w-full max-w-xs sm:max-w-sm">
-          <h2 className="text-lg sm:text-xl text-black font-bold mb-3 text-center">
-            Enter Branch Password
-          </h2>
+        <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm">
+          <h2 className="text-xl font-bold text-center text-gray-800 mb-4">Enter Branch Password</h2>
           <form onSubmit={handlePasswordSubmit}>
             <input
               type="password"
               placeholder="Password"
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
-              className="w-full text-black p-1.5 sm:p-2 border rounded mb-3 text-sm"
+              className="w-full p-2 border rounded mb-3 text-sm"
               autoFocus
             />
-            {passwordError && (
-              <p className="text-red-500 text-xs mb-3">{passwordError}</p>
-            )}
+            {passwordError && <p className="text-red-500 text-xs mb-3">{passwordError}</p>}
             <button
               type="submit"
-              className="w-full bg-indigo-600 text-white py-1.5 sm:py-2 rounded hover:bg-indigo-700 text-sm"
+              className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition"
             >
               Access Dashboard
             </button>
@@ -1131,102 +1119,71 @@ Every great driver begins with the right foundation. Our slogan says it all: �
   }
 
   const totalRevenue = students.reduce((sum, s) => sum + s.feePaid, 0);
-  const totalOutstanding = students.reduce(
-    (sum, s) => sum + ((s.totalFee || 0) - s.feePaid),
-    0,
-  );
+  const totalOutstanding = students.reduce((sum, s) => sum + ((s.totalFee || 0) - s.feePaid), 0);
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-white w-full">
+    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-white rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white mb-4 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
-          {branch?.name} Dashboard
-        </h1>
-        <p className="text-indigo-100 text-xs sm:text-sm mt-0.5 sm:mt-1">
-          Branch overview & student management
-        </p>
+      <div className="bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 rounded-2xl shadow-xl p-6 text-white mb-8">
+        <h1 className="text-3xl font-bold">{branch?.name} Dashboard</h1>
+        <p className="text-indigo-100 mt-1">Branch overview & student management</p>
       </div>
 
-      {/* Date Range Report Section */}
-      <div className="bg-gray-600 rounded-lg shadow p-4 mb-5 border border-gray-600">
-        <h3 className="font-semibold text-md mb-2">
-          📊 Reports (select date range)
-        </h3>
-        <div className="flex flex-wrap gap-3 items-end text-blue-600">
+      {/* Reports Section */}
+      <div className="bg-white rounded-xl shadow-md p-5 mb-8 border border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">📊 Generate Reports</h3>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={generateReport} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition">
+              📆 Payments in Period
+            </button>
+            <button onClick={printEnrolledStudentsReport} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition">
+              📋 Students Enrolled
+            </button>
+            <button onClick={printStudentsWithBalance} className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm transition">
+              🖨️ Students with Balance
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-4">
           <div>
-            <label className="block text-xs bg-amber-300 text-white p-1.5 rounded">
-              From Date
-            </label>
+            <label className="block text-xs font-medium text-gray-800">From Date</label>
             <input
               type="date"
               value={reportStartDate}
               onChange={(e) => setReportStartDate(e.target.value)}
-              className="border p-1.5 rounded text-sm text-red-950 bg-gray-300"
+              className="border rounded-lg p-2 text-amber-800 text-sm bg-indigo-300"
             />
           </div>
           <div>
-            <label className="block text-xs bg-amber-600 text-white p-1.5 rounded">
-              To Date
-            </label>
+            <label className="block text-xs font-medium text-gray-800">To Date</label>
             <input
               type="date"
               value={reportEndDate}
               onChange={(e) => setReportEndDate(e.target.value)}
-              className="border p-1.5 rounded text-sm text-red-950 bg-gray-300"
+              className="border rounded-lg text-amber-800 p-2 text-sm bg-indigo-300"
             />
           </div>
-          <button
-            onClick={generateReport}
-            className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700"
-          >
-            📆 Payments in Period
-          </button>
-          <button
-            onClick={printEnrolledStudentsReport}
-            className="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700"
-          >
-            📋 Students Enrolled in Period
-          </button>
         </div>
-        <p className="text-xs text-gray-300 mt-2">
-          *Payments in Period*: shows payments collected in date range (all
-          students).
-          <br />
-          *Students Enrolled in Period*: shows only students whose enrollment
-          date falls between the selected dates, with their full fee summary.
-        </p>
-        <div className="mt-4 pt-3 border-t border-gray-500 flex flex-wrap gap-3">
-          <button
-            onClick={printStudentsWithBalance}
-            className="bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700"
-          >
-            🖨️ Print Students with Balance
-          </button>
+        <div className="mt-4 flex flex-wrap gap-3 border-t pt-4">
           <button
             onClick={() => {
               if (!selectedStudent) {
                 alert("Please select a student first.");
                 return;
               }
-              const balance =
-                (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
+              const balance = (selectedStudent.totalFee || 0) - selectedStudent.feePaid;
               if (balance > 0) {
-                alert(
-                  "Transfer rejected due to uncleared school fee. Kindly ask student to clear payment to proceed with transfer.",
-                );
+                alert("Transfer rejected due to uncleared school fee. Kindly ask student to clear payment to proceed with transfer.");
                 return;
               }
               setShowTransferModal(true);
             }}
-            className="bg-orange-600 text-white px-4 py-2 rounded text-sm hover:bg-orange-700"
+            className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition"
           >
             🔄 Request Student Transfer
           </button>
-          <button
-            onClick={() => setShowManualExamModal(true)}
-            className="bg-purple-600 text-yellow-950 px-4 py-2 rounded text-sm hover:bg-purple-700"
-          >
+          <button onClick={() => setShowManualExamModal(true)} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition">
             📝 Exam List Request
           </button>
           <button
@@ -1234,228 +1191,146 @@ Every great driver begins with the right foundation. Our slogan says it all: �
               fetchAllExamRequests();
               setShowRequestsModal(true);
             }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition"
           >
             📋 Check Exam Requests
           </button>
         </div>
       </div>
 
-      {/* DATE RANGE FILTER */}
-      <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-black rounded-lg shadow p-3 sm:p-4 mb-5">
-        <label className="text-sm sm:text-base font-medium block mb-2">
-          <strong>Select Date Range:</strong>
-        </label>
-        <div className="flex flex-wrap gap-3 items-end">
+      {/* Date Range Filter & Stats - NOW SHOWING CURRENT WEEK DATA */}
+      <div className="bg-white rounded-xl shadow-md p-5 mb-8 border border-gray-300">
+        <label className="block font-semibold text-gray-700 mb-3">📅 Select Date Range for Reports (manual)</label>
+        <div className="flex flex-wrap gap-4 items-end">
           <div>
-            <label className="block text-xs text-white/80">From Date</label>
+            <label className="block text-xs text-gray-600">From Date</label>
             <input
               type="date"
               value={rangeStartDate}
               onChange={(e) => setRangeStartDate(e.target.value)}
-              className="border p-1.5 sm:p-2 rounded text-sm sm:text-base bg-white text-black"
+              className="border rounded-lg p-2 text-amber-800 text-sm bg-blue-300"
             />
           </div>
           <div>
-            <label className="block text-xs text-white/80">To Date</label>
+            <label className="block text-xs text-gray-600">To Date</label>
             <input
               type="date"
               value={rangeEndDate}
               onChange={(e) => setRangeEndDate(e.target.value)}
-              className="border p-1.5 sm:p-2 rounded text-sm sm:text-base bg-white text-black"
+              className="border rounded-lg p-2 text-amber-800 text-sm bg-blue-300"
             />
           </div>
           <button
-            onClick={() => {
-              setRangeStartDate(rangeStartDate);
-            }}
-            className="bg-yellow-500 text-black px-3 py-1.5 rounded text-sm hover:bg-yellow-600"
+            onClick={() => setRangeStartDate(rangeStartDate)}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm transition"
           >
             Apply Range
           </button>
         </div>
-        <div className="mt-3 space-y-1 text-sm sm:text-base">
-          <p>
-            <strong>💰 Total Collections (Revenue) in Period:</strong> Ksh{" "}
-            {rangeTotalPayments.toLocaleString()}
-          </p>
-          <p className="mt-2 pt-2 border-t border-gray-400">
-            <strong>📊 Outstanding Balance as of {rangeEndDate}:</strong> Ksh{" "}
-            {rangeEndBalance.toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-8">
-        <div className="bg-blue-300 rounded-lg shadow p-3 sm:p-5">
-          <div className="text-black text-xs sm:text-sm">Total Students</div>
-          <div className="text-2xl sm:text-3xl font-bold text-gray-800">
-            {students.length}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-blue-50 rounded-lg p-3 text-center">
+            <p className="text-sm text-gray-600">💰 Collections (This Week)</p>
+            <p className="text-xl font-bold text-green-700">Ksh {weekSummary.totalPayments.toLocaleString()}</p>
           </div>
-        </div>
-        <div className="bg-blue-300 rounded-lg shadow p-3 sm:p-5">
-          <div className="text-black text-xs sm:text-sm">
-            Total Revenue (Fees Paid)
+          <div className="bg-orange-50 rounded-lg p-3 text-center">
+            <p className="text-sm text-gray-600">📊 Outstanding Balance (End of Week)</p>
+            <p className="text-xl font-bold text-orange-700">Ksh {weekSummary.endBalance.toLocaleString()}</p>
           </div>
-          <div className="text-xl sm:text-3xl font-bold text-green-600">
-            Ksh {totalRevenue.toLocaleString()}
-          </div>
-        </div>
-        <div className="bg-blue-300 rounded-lg shadow p-3 sm:p-5">
-          <div className="text-black text-xs sm:text-sm">
-            Outstanding Balance
-          </div>
-          <div className="text-xl sm:text-3xl font-bold text-orange-600">
-            Ksh {totalOutstanding.toLocaleString()}
-          </div>
-        </div>
-        <div className="bg-blue-300 rounded-lg shadow p-3 sm:p-5">
-          <div className="text-black text-xs sm:text-sm">Lessons Taken</div>
-          <div className="text-2xl sm:text-3xl font-bold text-purple-800">
-            {rangeLessonsCount}
-          </div>
-          <div className="text-xs text-gray-700 mt-1">
-            (from {rangeStartDate} to {rangeEndDate})
+          <div className="bg-purple-50 rounded-lg p-3 text-center">
+            <p className="text-sm text-gray-600">📚 Lessons Taken (This Week)</p>
+            <p className="text-xl font-bold text-purple-700">{weekSummary.lessonsCount}</p>
+            <p className="text-xs text-gray-500">Monday to Sunday</p>
           </div>
         </div>
       </div>
 
-      {/* Search bar */}
-      <div className="mb-4">
+      {/* Search */}
+      <div className="mb-6">
         <input
           type="text"
           placeholder="🔍 Search by name, admission number, phone, or ID number..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full p-2 border text-amber-700 rounded-lg text-sm"
+          className="w-full p-3 border text-orange-800 border-gray-400 rounded-xl shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
         />
       </div>
 
-      {/* Student list and detail panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-r from-indigo-600 via-orange-600 to-white rounded-lg shadow overflow-hidden lg:col-span-1">
-          <div className="px-3 py-2 bg-gray-400 border-b">
-            <h3 className="font-semibold text-sm">
-              Students ({filteredStudents.length})
-            </h3>
+      {/* Student List and Details */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Student List Card */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
+          <div className="bg-indigo-600 px-4 py-3">
+            <h3 className="font-semibold text-white">Students ({filteredStudents.length})</h3>
           </div>
-          <div className="max-h-[500px] overflow-y-auto divide-y">
+          <div className="max-h-[600px] overflow-y-auto divide-y divide-gray-200">
             {filteredStudents.map((student) => (
               <button
                 key={student.id}
                 onClick={() => setSelectedStudent(student)}
-                className={`w-full text-left p-3 hover:bg-gray-50 transition ${
+                className={`w-full text-left text-red-500 p-4 transition ${
                   selectedStudent?.id === student.id
-                    ? "bg-indigo-500 border-l-4 border-indigo-500"
-                    : ""
+                    ? "bg-indigo-50 border-l-4 border-indigo-600"
+                    : "hover:bg-gray-100"
                 }`}
               >
-                <div className="font-medium text-sm">{student.name}</div>
-                <div className="text-xs text-gray-700">
+                <div className="font-medium text-gray-800">{student.name}</div>
+                <div className="text-sm text-gray-500">
                   {student.accountNumber} | {student.phone}
                 </div>
-                <div className="text-xs font-semibold mt-1">
-                  Balance: Ksh{" "}
-                  {((student.totalFee || 0) - student.feePaid).toLocaleString()}
+                <div className="text-sm font-semibold mt-1">
+                  Balance: Ksh {((student.totalFee || 0) - student.feePaid).toLocaleString()}
                 </div>
               </button>
             ))}
             {filteredStudents.length === 0 && (
-              <div className="p-4 text-center text-sm text-gray-800">
-                No students match
-              </div>
+              <div className="p-4 text-center text-gray-500">No students match</div>
             )}
           </div>
         </div>
 
-        <div className="lg:col-span-2 space-y-4">
+        {/* Student Details Panel */}
+        <div className="lg:col-span-2 text-amber-600 space-y-6">
           {selectedStudent ? (
             <>
-              {/* Student summary */}
-              <div className="bg-gray-700 rounded-lg shadow p-4">
-                <div className="flex justify-between items-start flex-wrap gap-2">
+              {/* Student Summary Card */}
+              <div className="bg-gray-300 rounded-xl shadow-md p-5 border border-gray-300">
+                <div className="flex flex-wrap justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-white">
-                      {selectedStudent.name}
-                    </h2>
-                    <p className="text-xs text-white">
-                      Admission: {selectedStudent.accountNumber} | ID:{" "}
-                      {selectedStudent.idNumber || "N/A"}
+                    <h2 className="text-xl font-bold text-gray-800">{selectedStudent.name}</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Admission: {selectedStudent.accountNumber} | ID: {selectedStudent.idNumber || "N/A"}
                     </p>
-                    <p className="text-xs text-white">
-                      Phone: {selectedStudent.phone} | Classes:{" "}
-                      {selectedStudent.classes?.join(", ") || "None"}
+                    <p className="text-sm text-gray-500">
+                      Phone: {selectedStudent.phone} | Classes: {selectedStudent.classes?.join(", ") || "None"}
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm">
-                      Total Fee:{" "}
-                      <span className="font-semibold">
-                        Ksh {selectedStudent.totalFee}
-                      </span>
-                    </div>
-                    <div className="text-sm">
-                      Paid:{" "}
-                      <span className="font-semibold text-green-500">
-                        Ksh {selectedStudent.feePaid}
-                      </span>
-                    </div>
-                    <div className="text-sm font-bold">
-                      Balance:{" "}
-                      <span
-                        className={
-                          (selectedStudent.totalFee || 0) -
-                            selectedStudent.feePaid >
-                          0
-                            ? "text-orange-600"
-                            : "text-green-600"
-                        }
-                      >
-                        Ksh{" "}
-                        {(
-                          (selectedStudent.totalFee || 0) -
-                          selectedStudent.feePaid
-                        ).toLocaleString()}
-                      </span>
-                    </div>
+                    <p className="text-sm">Total Fee: <span className="font-semibold">Ksh {selectedStudent.totalFee}</span></p>
+                    <p className="text-sm">Paid: <span className="font-semibold text-green-600">Ksh {selectedStudent.feePaid}</span></p>
+                    <p className="text-sm font-bold">Balance: <span className={((selectedStudent.totalFee || 0) - selectedStudent.feePaid) > 0 ? "text-red-600" : "text-green-600"}>Ksh {((selectedStudent.totalFee || 0) - selectedStudent.feePaid).toLocaleString()}</span></p>
                   </div>
                 </div>
               </div>
 
-              {/* Payment history */}
-              <div className="bg-[#041A40] rounded-lg shadow p-4">
-                <h3 className="font-semibold text-white text-sm mb-2">
-                  💰 Payment History
-                </h3>
-                {selectedStudent.payments &&
-                selectedStudent.payments.length > 0 ? (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+              {/* Payment History Card */}
+              <div className="bg-white rounded-xl shadow-md p-5 border border-gray-200">
+                <h3 className="font-semibold text-gray-800 mb-3">Payment History</h3>
+                {selectedStudent.payments && selectedStudent.payments.length > 0 ? (
+                  <div className="space-y-2 text-violet-800 max-h-48 overflow-y-auto">
                     {selectedStudent.payments.map((payment) => (
-                      <div
-                        key={payment.id}
-                        className="flex justify-between items-center border-b pb-1 text-sm"
-                      >
+                      <div key={payment.id} className="flex justify-between items-center border-b pb-2">
                         <div>
-                          <span className="font-medium text-gray-300">
-                            Ksh {payment.amount}
-                          </span>
-                          <span className="text-gray-300 text-xs ml-2">
-                            {payment.date.toLocaleDateString()}
-                          </span>
+                          <span className="font-medium">Ksh {payment.amount}</span>
+                          <span className="text-xs text-gray-500 ml-2">{payment.date.toLocaleDateString()}</span>
                           {payment.method === "mpesa" ? (
-                            <span className="text-gray-300 text-xs ml-2">
-                              M-Pesa: {payment.reference}
-                            </span>
+                            <span className="text-xs text-gray-500 ml-2">M-Pesa: {payment.reference}</span>
                           ) : (
-                            <span className="text-gray-300 text-xs ml-2">
-                              Cash
-                            </span>
+                            <span className="text-xs text-gray-500 ml-2">Cash</span>
                           )}
                         </div>
                         <button
                           onClick={() => printReceipt(payment)}
-                          className="bg-green-500 text-white px-2 py-0.5 rounded text-xs hover:bg-green-800"
+                          className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
                         >
                           Receipt
                         </button>
@@ -1463,34 +1338,27 @@ Every great driver begins with the right foundation. Our slogan says it all: �
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-white">No payments recorded.</p>
+                  <p className="text-sm text-gray-500">No payments recorded.</p>
                 )}
-                {(selectedStudent.totalFee || 0) - selectedStudent.feePaid >
-                0 ? (
-                  <div className="mt-3 pt-3 border-t">
+                {(selectedStudent.totalFee || 0) - selectedStudent.feePaid > 0 ? (
+                  <div className="mt-4 pt-3 border-t">
                     <div className="flex flex-wrap gap-3 items-end">
                       <div className="flex-1 min-w-[100px]">
-                        <label className="block text-xs text-white">
-                          Amount (Ksh)
-                        </label>
+                        <label className="block text-xs text-gray-800">Amount (Ksh)</label>
                         <input
                           type="number"
                           value={newPaymentAmount}
                           onChange={(e) => setNewPaymentAmount(e.target.value)}
-                          className="w-full border rounded p-1 text-sm"
-                          placeholder="0"
+                          className="w-full border rounded text-green-700 text-xl text-sm p-2"
+                          placeholder="0" 
                         />
                       </div>
                       <div className="flex-1 min-w-[120px]">
-                        <label className="block text-xs text-white">
-                          Payment Method
-                        </label>
+                        <label className="block text-xs text-gray-800">Payment Method</label>
                         <select
                           value={paymentMethod}
-                          onChange={(e) =>
-                            setPaymentMethod(e.target.value as "mpesa" | "cash")
-                          }
-                          className="w-full border rounded p-1 text-sm"
+                          onChange={(e) => setPaymentMethod(e.target.value as "mpesa" | "cash")}
+                          className="w-full border rounded text-green-700 text-xl p-2 text-sm"
                         >
                           <option value="cash">Cash</option>
                           <option value="mpesa">M-Pesa</option>
@@ -1498,85 +1366,49 @@ Every great driver begins with the right foundation. Our slogan says it all: �
                       </div>
                       {paymentMethod === "mpesa" && (
                         <div className="flex-1 min-w-[120px]">
-                          <label className="block text-xs text-gray-300">
-                            M-Pesa Code
-                          </label>
+                          <label className="block text-xl text-gray-800">M-Pesa Code</label>
                           <input
                             type="text"
                             value={mpesaCode}
                             onChange={(e) => setMpesaCode(e.target.value)}
-                            className="w-full border rounded p-1 text-sm"
+                            className="w-full border rounded text-green-700 text-xl p-2 text-sm"
                             placeholder="e.g., QWERTY123"
                           />
                         </div>
                       )}
-                      <button
-                        onClick={addPayment}
-                        className="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700"
-                      >
+                      <button onClick={addPayment} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
                         Add Payment
                       </button>
                     </div>
-                    {paymentError && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {paymentError}
-                      </p>
-                    )}
-                    {paymentSuccess && (
-                      <p className="text-green-600 text-xs mt-1">
-                        {paymentSuccess}
-                      </p>
-                    )}
+                    {paymentError && <p className="text-red-500 text-xs mt-2">{paymentError}</p>}
+                    {paymentSuccess && <p className="text-green-600 text-xs mt-2">{paymentSuccess}</p>}
                   </div>
                 ) : (
                   <div className="mt-3 pt-3 border-t">
-                    <p className="text-green-300 text-sm font-semibold">
-                      ✅ Fully Paid – No further payments required, accept
-                      internal exams 1,000.
-                    </p>
+                    <p className="text-green-600 text-sm font-semibold">✅ Fully Paid – No further payments required, except internal exams 1,000.</p>
                   </div>
                 )}
               </div>
 
-              {/* Lessons section - MODIFIED to include instructor & car fields */}
-              <div className="bg-[#041A40] rounded-lg shadow p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-semibold text-sm">📚 Lessons</h3>
+              {/* Lessons Card */}
+              <div className="bg-white rounded-xl shadow-md p-5 border border-gray-100">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-gray-800">📚 Lessons</h3>
                   <div className="text-sm">
-                    <span className="font-medium">
-                      Total: {selectedStudent.lessons?.length || 0} /{" "}
-                      {MAX_LESSONS}
-                    </span>
-                    <span
-                      className={`ml-2 font-bold ${
-                        MAX_LESSONS - (selectedStudent.lessons?.length || 0) <=
-                        5
-                          ? "text-red-400"
-                          : "text-yellow-200"
-                      }`}
-                    >
-                      Remaining:{" "}
-                      {MAX_LESSONS - (selectedStudent.lessons?.length || 0)}
+                    <span className="font-medium">Total: {selectedStudent.lessons?.length || 0} / {MAX_LESSONS}</span>
+                    <span className={`ml-2 font-bold ${MAX_LESSONS - (selectedStudent.lessons?.length || 0) <= 5 ? "text-red-500" : "text-yellow-600"}`}>
+                      Remaining: {MAX_LESSONS - (selectedStudent.lessons?.length || 0)}
                     </span>
                   </div>
                 </div>
-                {(selectedStudent.totalFee || 0) - selectedStudent.feePaid >
-                  0 &&
-                  (selectedStudent.lessons?.length || 0) >=
-                    MAX_LESSONS_WITH_BALANCE && (
-                    <div className="bg-red-900 text-white text-xs p-2 rounded mb-2">
-                      ⚠️ Outstanding balance of Ksh{" "}
-                      {(
-                        (selectedStudent.totalFee || 0) -
-                        selectedStudent.feePaid
-                      ).toLocaleString()}
-                      . Please clear the balance to continue with lessons.{" "}
-                      {MAX_LESSONS_WITH_BALANCE}.
+                {(selectedStudent.totalFee || 0) - selectedStudent.feePaid > 0 &&
+                  (selectedStudent.lessons?.length || 0) >= MAX_LESSONS_WITH_BALANCE && (
+                    <div className="bg-red-100 text-red-700 text-xs p-2 rounded mb-3">
+                      ⚠️ Outstanding balance of Ksh {((selectedStudent.totalFee || 0) - selectedStudent.feePaid).toLocaleString()}. Please clear the balance to continue with lessons. Max {MAX_LESSONS_WITH_BALANCE} lessons allowed with balance.
                     </div>
                   )}
-                {selectedStudent.lessons &&
-                selectedStudent.lessons.length > 0 ? (
-                  <div className="space-y-1 max-h-32 overflow-y-auto mb-3">
+                {selectedStudent.lessons && selectedStudent.lessons.length > 0 ? (
+                  <div className="space-y-1 max-h-48 overflow-y-auto mb-4">
                     {(() => {
                       const grouped: { [date: string]: Lesson[] } = {};
                       selectedStudent.lessons.forEach((lesson) => {
@@ -1584,203 +1416,120 @@ Every great driver begins with the right foundation. Our slogan says it all: �
                         if (!grouped[dateKey]) grouped[dateKey] = [];
                         grouped[dateKey].push(lesson);
                       });
-                      return Object.entries(grouped).map(
-                        ([dateStr, lessonsOnDate]) => (
-                          <div
-                            key={dateStr}
-                            className="text-sm border-b border-gray-600 pb-1"
-                          >
-                            <div className="font-semibold text-gray-300">
-                              {dateStr}
+                      return Object.entries(grouped).map(([dateStr, lessonsOnDate]) => (
+                        <div key={dateStr} className="border-b pb-2">
+                          <div className="font-semibold text-gray-700">{dateStr}</div>
+                          {lessonsOnDate.map((lesson) => (
+                            <div key={lesson.id} className="flex justify-between pl-2 mt-1">
+                              <span>{lesson.type || "General"} (Lesson {lesson.lessonNumber}) ✅</span>
+                              <span className="text-gray-500 text-xs">{lesson.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                              <button onClick={() => printLessonTicket(lesson)} className="bg-gray-500 text-white px-2 py-0.5 rounded text-xs hover:bg-blue-600">
+                                Ticket
+                              </button>
                             </div>
-                            {lessonsOnDate.map((lesson) => (
-                              <div
-                                key={lesson.id}
-                                className="flex justify-between pl-2"
-                              >
-                                <span>{lesson.type || "General"} ✅</span>
-                                <span className="text-gray-200 text-xs">
-                                  {lesson.date.toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </span>
-                                <button
-                                  onClick={() => printLessonTicket(lesson)}
-                                  className="bg-gray-500 text-white px-2 py-0.5 rounded text-xs hover:bg-blue-600"
-                                >
-                                  Ticket
-                                </button>
-                              </div>
-                            ))}
-                            {lessonsOnDate.length === 2 && (
-                              <div className="text-yellow-300 text-xs pl-2">
-                                ⚠️ 2 lessons today
-                              </div>
-                            )}
-                          </div>
-                        ),
-                      );
+                          ))}
+                          {lessonsOnDate.length === 2 && <div className="text-yellow-600 text-xs pl-2">⚠️ 2 lessons today</div>}
+                        </div>
+                      ));
                     })()}
                   </div>
                 ) : (
-                  <p className="text-sm text-white mb-3">No lessons yet.</p>
+                  <p className="text-sm text-gray-500 mb-4">No lessons yet.</p>
                 )}
-                {/* NEW: Instructor & Car input fields */}
                 <div className="flex flex-wrap gap-2 items-end">
                   <div className="flex-1 min-w-[120px]">
-                    <label className="block text-xs text-gray-200">Instructor Code</label>
+                    <label className="block text-xs text-gray-600">Instructor Code</label>
                     <input
                       type="text"
                       value={instructorCode}
                       onChange={(e) => setInstructorCode(e.target.value)}
-                      className="w-full border rounded p-1 text-sm"
+                      className="w-full border rounded p-2 text-sm"
                       placeholder="e.g., 001"
                     />
                   </div>
                   <div className="flex-1 min-w-[120px]">
-                    <label className="block text-xs text-gray-200">Car Number</label>
+                    <label className="block text-xs text-gray-600">Car Number</label>
                     <input
                       type="text"
                       value={carNumber}
                       onChange={(e) => setCarNumber(e.target.value)}
-                      className="w-full border rounded p-1 text-sm"
+                      className="w-full border rounded p-2 text-sm"
                       placeholder="e.g., KDN 661E"
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-gray-200">Lesson type (optional)</label>
+                    <label className="block text-xs text-gray-600">Lesson type (optional)</label>
                     <input
                       type="text"
                       value={lessonNote}
                       onChange={(e) => setLessonNote(e.target.value)}
-                      className="w-full border rounded p-1 text-sm"
+                      className="w-full border rounded p-2 text-sm"
                       placeholder="e.g., Practical, Theory"
                     />
                   </div>
-                  <button
-                    onClick={generateLesson}
-                    className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700"
-                  >
+                  <button onClick={generateLesson} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
                     Generate Lesson
                   </button>
                 </div>
-                {instructorError && <p className="text-red-400 text-xs mt-2">{instructorError}</p>}
-                <p className="text-xs text-gray-400 mt-2">
-                  ⚠️ Max 2 lessons per day. Max total {MAX_LESSONS} lessons. If
-                  balance is greater than 0, only first{" "}
-                  {MAX_LESSONS_WITH_BALANCE} lessons allowed.
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  💰 Minimum fee required for lessons: B1/B2 = 8,000 Ksh, other
-                  classes = 10,000 Ksh.
+                {instructorError && <p className="text-red-500 text-xs mt-2">{instructorError}</p>}
+                <p className="text-xs text-gray-500 mt-3">
+                  ⚠️ Max 2 lessons per day. Max total {MAX_LESSONS} lessons. If balance is greater than 0, only first {MAX_LESSONS_WITH_BALANCE} lessons allowed. 💰 Minimum fee required for lessons: B1/B2 = 8,000 Ksh, other classes = 10,000 Ksh.
                 </p>
               </div>
             </>
           ) : (
-            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm">
-              Select a student from the list to view details, payments, and
-              lessons.
+            <div className="bg-white rounded-xl shadow-md p-8 text-center text-gray-500">
+              Select a student from the list to view details, payments, and lessons.
             </div>
           )}
         </div>
       </div>
 
-      {/* Exam Requests Modal */}
+      {/* Modals (unchanged) */}
       {showRequestsModal && (
-        <div className="fixed inset-0 bg-gray-400 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-yellow-500 border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">
-                📋 Exam Requests - {branch?.name}
-              </h2>
-              <button
-                onClick={() => setShowRequestsModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
-              >
-                ×
-              </button>
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-yellow-500 p-4 flex justify-between items-center rounded-t-xl">
+              <h2 className="text-xl font-bold">📋 Exam Requests - {branch?.name}</h2>
+              <button onClick={() => setShowRequestsModal(false)} className="text-2xl leading-none hover:text-gray-800">&times;</button>
             </div>
-            <div className="p-4 bg-gray-600">
-              <div className="flex justify-between items-center mb-4 bg-gray-400">
-                <p className="text-sm text-gray-600">
-                  All exam requests submitted from this branch. Approved
-                  requests show the scheduled exam date.
-                </p>
-                <button
-                  onClick={() => fetchAllExamRequests()}
-                  className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-                >
-                  Refresh
-                </button>
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-gray-600">All exam requests submitted from this branch. Approved requests show the scheduled exam date.</p>
+                <button onClick={() => fetchAllExamRequests()} className="bg-blue-500 text-white px-3 py-1 rounded text-sm">Refresh</button>
               </div>
               {loadingRequests ? (
-                <p className="text-center py-8 text-gray-500">
-                  Loading requests...
-                </p>
+                <p className="text-center py-8">Loading requests...</p>
               ) : allExamRequests.length === 0 ? (
-                <p className="text-center py-8 text-gray-500">
-                  No exam requests submitted yet.
-                </p>
+                <p className="text-center py-8 text-gray-500">No exam requests submitted yet.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full border border-gray-200 text-sm">
-                    <thead className="bg-gray-900">
+                  <table className="min-w-full border text-sm">
+                    <thead className="bg-gray-100">
                       <tr>
-                        <th className="px-4 py-2 border">Student Name</th>
-                        <th className="px-4 py-2 border">ID Number</th>
-                        <th className="px-4 py-2 border">Requested Class</th>
-                        <th className="px-4 py-2 border">Request Date</th>
-                        <th className="px-4 py-2 border">Status</th>
-                        <th className="px-4 py-2 border">
-                          Exam Date (if approved)
-                        </th>
-                        <th className="px-4 py-2 border">Note</th>
+                        <th className="p-2 border">Student Name</th>
+                        <th className="p-2 border">ID Number</th>
+                        <th className="p-2 border">Requested Class</th>
+                        <th className="p-2 border">Request Date</th>
+                        <th className="p-2 border">Status</th>
+                        <th className="p-2 border">Exam Date (if approved)</th>
+                        <th className="p-2 border">Note</th>
                       </tr>
                     </thead>
                     <tbody>
                       {allExamRequests.map((req) => (
-                        <tr key={req.id} className="hover:bg-green-500">
-                          <td className="px-4 py-2 border">
-                            {req.studentName}
+                        <tr key={req.id} className="hover:bg-gray-50">
+                          <td className="p-2 border">{req.studentName}</td>
+                          <td className="p-2 border">{req.studentIdNumber || "N/A"}</td>
+                          <td className="p-2 border">{req.requestedClass}</td>
+                          <td className="p-2 border">{req.createdAt.toLocaleDateString()}</td>
+                          <td className="p-2 border">
+                            {req.status === "pending" && <span className="bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full text-xs">Pending</span>}
+                            {req.status === "approved" && <span className="bg-green-200 text-green-800 px-2 py-1 rounded-full text-xs">Approved</span>}
+                            {req.status === "rejected" && <span className="bg-red-200 text-red-800 px-2 py-1 rounded-full text-xs">Rejected</span>}
                           </td>
-                          <td className="px-4 py-2 border">
-                            {req.studentIdNumber || "N/A"}
-                          </td>
-                          <td className="px-4 py-2 border">
-                            {req.requestedClass}
-                          </td>
-                          <td className="px-4 py-2 border">
-                            {req.createdAt.toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-2 border">
-                            {req.status === "pending" && (
-                              <span className="bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full text-xs font-semibold">
-                                Pending
-                              </span>
-                            )}
-                            {req.status === "approved" && (
-                              <span className="bg-green-200 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">
-                                Approved
-                              </span>
-                            )}
-                            {req.status === "rejected" && (
-                              <span className="bg-red-200 text-red-800 px-2 py-1 rounded-full text-xs font-semibold">
-                                Rejected
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2 border">
-                            {req.status === "approved" && req.examDate
-                              ? req.examDate.toLocaleDateString()
-                              : "-"}
-                          </td>
-                          <td
-                            className="px-4 py-2 border max-w-xs truncate"
-                            title={req.note}
-                          >
-                            {req.note}
-                          </td>
+                          <td className="p-2 border">{req.status === "approved" && req.examDate ? req.examDate.toLocaleDateString() : "-"}</td>
+                          <td className="p-2 border max-w-xs truncate">{req.note}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1792,26 +1541,14 @@ Every great driver begins with the right foundation. Our slogan says it all: �
         </div>
       )}
 
-      {/* Exam Request Modal for existing student */}
       {showExamModal && examStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 className="text-xl font-bold mb-4">Request NTSA Exam</h3>
-            <p className="mb-2">
-              <strong>Student:</strong> {examStudent.name} <br />
-              <strong>ID Number:</strong>{" "}
-              {examStudent.idNumber || "Not provided"}
-            </p>
+            <p className="mb-2"><strong>Student:</strong> {examStudent.name} <br /><strong>ID Number:</strong> {examStudent.idNumber || "Not provided"}</p>
             <div className="mb-3">
-              <label className="block text-sm font-medium mb-1">
-                Exam Class
-              </label>
-              <select
-                value={examClass}
-                onChange={(e) => setExamClass(e.target.value)}
-                className="w-full border rounded p-2 text-sm"
-                required
-              >
+              <label className="block text-sm font-medium mb-1">Exam Class</label>
+              <select value={examClass} onChange={(e) => setExamClass(e.target.value)} className="w-full border rounded p-2 text-sm" required>
                 <option value="">Select class...</option>
                 <option value="B1">B1/B2 (Light Vehicle)</option>
                 <option value="B2">B1 (Light Vehicle Auto)</option>
@@ -1820,101 +1557,38 @@ Every great driver begins with the right foundation. Our slogan says it all: �
                 <option value="D1">D1 (PSV)</option>
                 <option value="A1">A1 (Motorcycle)</option>
                 <option value="A">A2 (Motorcycle)</option>
-                <option value="A">A3 (Motorcycle)</option>
               </select>
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                Additional Note (Optional)
-              </label>
-              <textarea
-                value={examNote}
-                onChange={(e) => setExamNote(e.target.value)}
-                rows={3}
-                className="w-full border rounded p-2 text-sm"
-                placeholder="Any special instructions for the admin..."
-              />
+              <label className="block text-sm font-medium mb-1">Additional Note (Optional)</label>
+              <textarea value={examNote} onChange={(e) => setExamNote(e.target.value)} rows={3} className="w-full border rounded p-2 text-sm" placeholder="Any special instructions..."/>
             </div>
-            {examRequestError && (
-              <p className="text-red-500 text-xs mb-2">{examRequestError}</p>
-            )}
+            {examRequestError && <p className="text-red-500 text-xs mb-2">{examRequestError}</p>}
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowExamModal(false);
-                  setExamStudent(null);
-                  setExamClass("");
-                  setExamNote("");
-                  setExamRequestError("");
-                }}
-                className="px-4 py-2 border rounded text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleExamRequest}
-                disabled={examRequestLoading}
-                className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
-              >
-                {examRequestLoading ? "Submitting..." : "Submit Request"}
-              </button>
+              <button onClick={() => { setShowExamModal(false); setExamStudent(null); setExamClass(""); setExamNote(""); setExamRequestError(""); }} className="px-4 py-2 border rounded text-sm">Cancel</button>
+              <button onClick={handleExamRequest} disabled={examRequestLoading} className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50">{examRequestLoading ? "Submitting..." : "Submit Request"}</button>
             </div>
-            {examRequestSuccess && (
-              <p className="text-green-600 text-xs mt-2">
-                {examRequestSuccess}
-              </p>
-            )}
+            {examRequestSuccess && <p className="text-green-600 text-xs mt-2">{examRequestSuccess}</p>}
           </div>
         </div>
       )}
 
-      {/* Manual Exam Request Modal */}
       {showManualExamModal && (
-        <div className="fixed inset-0 bg-gray-300 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-green-950 rounded-lg p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 className="text-xl font-bold mb-4">Exam List Request</h3>
-            <p className="text-sm text-gray-400 mb-3">
-              Enter student details for exam approval. The student name must
-              already exist in your branch records.
-            </p>
+            <p className="text-sm text-gray-500 mb-3">Enter student details for exam approval. The student name must already exist in your branch records.</p>
             <div className="mb-3">
-              <label className="block text-sm font-medium mb-1">
-                Student Full Name *
-              </label>
-              <input
-                type="text"
-                value={manualStudentName}
-                onChange={(e) => {
-                  setManualStudentName(e.target.value);
-                  setManualNameError("");
-                }}
-                className="w-full border rounded p-2 text-sm"
-                placeholder="Exactly as registered in the system"
-                required
-              />
+              <label className="block text-sm font-medium mb-1">Student Full Name *</label>
+              <input type="text" value={manualStudentName} onChange={(e) => { setManualStudentName(e.target.value); setManualNameError(""); }} className="w-full border rounded p-2 text-sm" placeholder="Exactly as registered in the system" required />
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-medium mb-1">
-                ID Number (Optional)
-              </label>
-              <input
-                type="text"
-                value={manualStudentId}
-                onChange={(e) => setManualStudentId(e.target.value)}
-                className="w-full border rounded p-2 text-sm"
-                placeholder="Must match the student's ID"
-              />
+              <label className="block text-sm font-medium mb-1">ID Number (Optional)</label>
+              <input type="text" value={manualStudentId} onChange={(e) => setManualStudentId(e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="Must match the student's ID" />
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-medium mb-1">
-                Exam Class *
-              </label>
-              <select
-                value={manualExamClass}
-                onChange={(e) => setManualExamClass(e.target.value)}
-                className="w-full border rounded p-2 text-sm"
-                required
-              >
+              <label className="block text-sm font-medium mb-1">Exam Class *</label>
+              <select value={manualExamClass} onChange={(e) => setManualExamClass(e.target.value)} className="w-full border rounded p-2 text-sm" required>
                 <option value="">Select class...</option>
                 <option value="B1">B1/B2 (Light Vehicle)</option>
                 <option value="B2">B1 (Light Vehicle Auto)</option>
@@ -1923,178 +1597,80 @@ Every great driver begins with the right foundation. Our slogan says it all: �
                 <option value="D1">D1 (PSV)</option>
                 <option value="A1">A1 (Motorcycle)</option>
                 <option value="A">A2 (Motorcycle)</option>
-                <option value="A">A3 (Motorcycle)</option>
               </select>
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                Additional Note (Optional)
-              </label>
-              <textarea
-                value={manualExamNote}
-                onChange={(e) => setManualExamNote(e.target.value)}
-                rows={3}
-                className="w-full border rounded p-2 text-sm"
-                placeholder="Any special instructions..."
-              />
+              <label className="block text-sm font-medium mb-1">Additional Note (Optional)</label>
+              <textarea value={manualExamNote} onChange={(e) => setManualExamNote(e.target.value)} rows={3} className="w-full border rounded p-2 text-sm" placeholder="Any special instructions..."/>
             </div>
-            {manualNameError && (
-              <p className="text-red-600 text-xs mb-3 bg-red-50 p-2 rounded border border-red-200">
-                ❌ {manualNameError}
-              </p>
-            )}
+            {manualNameError && <p className="text-red-600 text-xs mb-3 bg-red-50 p-2 rounded border border-red-200">❌ {manualNameError}</p>}
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowManualExamModal(false);
-                  setManualStudentName("");
-                  setManualStudentId("");
-                  setManualExamClass("");
-                  setManualExamNote("");
-                  setManualNameError("");
-                }}
-                className="px-4 py-2 border rounded hover:bg-orange-400 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleManualExamRequest}
-                disabled={manualRequestLoading}
-                className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
-              >
-                {manualRequestLoading ? "Submitting..." : "Submit Request"}
-              </button>
+              <button onClick={() => { setShowManualExamModal(false); setManualStudentName(""); setManualStudentId(""); setManualExamClass(""); setManualExamNote(""); setManualNameError(""); }} className="px-4 py-2 border rounded text-sm">Cancel</button>
+              <button onClick={handleManualExamRequest} disabled={manualRequestLoading} className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50">{manualRequestLoading ? "Submitting..." : "Submit Request"}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Transfer Modal */}
       {showTransferModal && (
-        <div className="fixed inset-0 bg-[#052E16] bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white text-black rounded-lg p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 className="text-lg font-bold mb-4">Transfer Student</h3>
-            <p className="text-sm mb-3">
-              Student: <strong>{selectedStudent?.name}</strong>
-            </p>
+            <p className="text-sm mb-3">Student: <strong>{selectedStudent?.name}</strong></p>
             <div className="mb-3">
               <label className="block text-sm font-medium">Target Branch</label>
-              <select
-                value={targetBranchId}
-                onChange={(e) => setTargetBranchId(e.target.value)}
-                className="w-full border rounded p-2 text-sm"
-              >
+              <select value={targetBranchId} onChange={(e) => setTargetBranchId(e.target.value)} className="w-full border rounded p-2 text-sm">
                 <option value="">Select branch...</option>
-                {availableBranches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
+                {availableBranches.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
               </select>
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-medium">
-                Reason for transfer
-              </label>
-              <textarea
-                value={transferReason}
-                onChange={(e) => setTransferReason(e.target.value)}
-                rows={3}
-                className="w-full border rounded p-2 text-sm"
-                placeholder="Explain why this student should be moved..."
-              />
+              <label className="block text-sm font-medium">Reason for transfer</label>
+              <textarea value={transferReason} onChange={(e) => setTransferReason(e.target.value)} rows={3} className="w-full border rounded p-2 text-sm" placeholder="Explain why this student should be moved..."/>
             </div>
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowTransferModal(false);
-                  setTargetBranchId("");
-                  setTransferReason("");
-                }}
-                className="px-4 py-2 text-sm border rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!targetBranchId || !transferReason.trim()) {
-                    alert("Please fill target branch and reason.");
-                    return;
-                  }
-                  setTransferLoading(true);
-                  try {
-                    const res = await fetch("/api/transfer/request", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify({
-                        studentId: selectedStudent!.id,
-                        fromBranchId: branch!.id,
-                        toBranchId: targetBranchId,
-                        reason: transferReason,
-                      }),
-                    });
-
-                    if (res.ok) {
-                      alert(
-                        "Transfer request submitted. Admin will review it.",
-                      );
-                      setShowTransferModal(false);
-                      setTargetBranchId("");
-                      setTransferReason("");
-                    } else {
-                      alert("Failed to submit request.");
-                    }
-                  } catch (err) {
-                    alert("Error submitting request.");
-                  } finally {
-                    setTransferLoading(false);
-                  }
-                }}
-                disabled={transferLoading}
-                className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {transferLoading ? "Submitting..." : "Submit Request"}
-              </button>
+              <button onClick={() => { setShowTransferModal(false); setTargetBranchId(""); setTransferReason(""); }} className="px-4 py-2 text-sm border rounded">Cancel</button>
+              <button onClick={async () => {
+                if (!targetBranchId || !transferReason.trim()) { alert("Please fill target branch and reason."); return; }
+                setTransferLoading(true);
+                try {
+                  const res = await fetch("/api/transfer/request", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({
+                      studentId: selectedStudent!.id,
+                      fromBranchId: branch!.id,
+                      toBranchId: targetBranchId,
+                      reason: transferReason,
+                    }),
+                  });
+                  if (res.ok) {
+                    alert("Transfer request submitted. Admin will review it.");
+                    setShowTransferModal(false); setTargetBranchId(""); setTransferReason("");
+                  } else alert("Failed to submit request.");
+                } catch (err) { alert("Error submitting request."); }
+                finally { setTransferLoading(false); }
+              }} disabled={transferLoading} className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 disabled:opacity-50">{transferLoading ? "Submitting..." : "Submit Request"}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Report Preview Modal */}
       {showReportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-100 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-indigo-700 text-white p-4 flex justify-between items-center rounded-t-lg">
+          <div className="bg-white rounded-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-indigo-700 text-white p-4 flex justify-between items-center rounded-t-xl">
               <h2 className="text-xl font-bold">📄 Report Preview</h2>
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="text-white hover:text-gray-200 text-2xl leading-none"
-              >
-                ×
-              </button>
+              <button onClick={() => setShowReportModal(false)} className="text-2xl leading-none hover:text-gray-200">&times;</button>
             </div>
-            <div className="p-4 bg-white">
-              <iframe
-                srcDoc={reportHTML}
-                title="Report Preview"
-                className="w-full h-[70vh] border-0 rounded"
-                sandbox="allow-same-origin allow-scripts allow-popups allow-modals"
-              />
+            <div className="p-4">
+              <iframe srcDoc={reportHTML} title="Report Preview" className="w-full h-[70vh] border-0 rounded" sandbox="allow-same-origin allow-scripts allow-popups allow-modals" />
             </div>
             <div className="sticky bottom-0 bg-gray-100 p-4 flex justify-center gap-4 border-t">
-              <button
-                onClick={handlePrintFromModal}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium"
-              >
-                🖨️ Print Report
-              </button>
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium"
-              >
-                Close
-              </button>
+              <button onClick={handlePrintFromModal} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium">🖨️ Print Report</button>
+              <button onClick={exportToExcel} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">📎 Export to Excel</button>
+              <button onClick={() => setShowReportModal(false)} className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">Close</button>
             </div>
           </div>
         </div>
@@ -2105,9 +1681,7 @@ Every great driver begins with the right foundation. Our slogan says it all: �
 
 export default function BranchAccessPage() {
   return (
-    <Suspense
-      fallback={<div className="p-4 text-center text-sm">Loading...</div>}
-    >
+    <Suspense fallback={<div className="p-4 text-center text-sm">Loading...</div>}>
       <BranchAccessContent />
     </Suspense>
   );

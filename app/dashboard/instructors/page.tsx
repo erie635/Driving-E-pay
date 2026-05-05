@@ -26,6 +26,7 @@ interface Vehicle {
   id: string;
   plate: string;
   insuranceExpiry: string;
+  inspectionExpiry: string;
   lastServiceKm: number;
   currentOdometer: number;
   nextServiceKm: number;
@@ -58,6 +59,7 @@ export default function InstructorsPage() {
   const [vehicleForm, setVehicleForm] = useState<Partial<Vehicle>>({
     plate: "",
     insuranceExpiry: "",
+    inspectionExpiry: "",
     lastServiceKm: 0,
     currentOdometer: 0,
     branch: "",
@@ -114,23 +116,46 @@ export default function InstructorsPage() {
     fetchData();
   }, [isAuthenticated]);
 
-  // Apply date filter for fleet
+  // Helper to get expiry days
+  const getExpiryDays = (expiryDate: string) => {
+    return Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+  };
+
+  // Sorting function: expired first, then expiring soon (<=7 days), then valid (>7 days)
+  const sortByUrgency = (a: Vehicle, b: Vehicle) => {
+    const daysA = getExpiryDays(a.insuranceExpiry);
+    const daysB = getExpiryDays(b.insuranceExpiry);
+
+    const getGroup = (days: number) => {
+      if (days <= 0) return 0;
+      if (days <= 7) return 1;
+      return 2;
+    };
+
+    const groupA = getGroup(daysA);
+    const groupB = getGroup(daysB);
+
+    if (groupA !== groupB) return groupA - groupB;
+    return daysA - daysB;
+  };
+
+  // Apply date filter and then sort by urgency
   useEffect(() => {
     if (!vehicles.length) {
       setFilteredVehicles([]);
       return;
     }
-    if (!startDate && !endDate) {
-      setFilteredVehicles(vehicles);
-      return;
+    let filtered = vehicles;
+    if (startDate || endDate) {
+      filtered = vehicles.filter((v) => {
+        const expiry = new Date(v.insuranceExpiry);
+        if (startDate && expiry < new Date(startDate)) return false;
+        if (endDate && expiry > new Date(endDate)) return false;
+        return true;
+      });
     }
-    const filtered = vehicles.filter((v) => {
-      const expiry = new Date(v.insuranceExpiry);
-      if (startDate && expiry < new Date(startDate)) return false;
-      if (endDate && expiry > new Date(endDate)) return false;
-      return true;
-    });
-    setFilteredVehicles(filtered);
+    const sorted = [...filtered].sort(sortByUrgency);
+    setFilteredVehicles(sorted);
   }, [vehicles, startDate, endDate]);
 
   const resetDateFilter = () => {
@@ -225,6 +250,7 @@ export default function InstructorsPage() {
     setVehicleForm({
       plate: "",
       insuranceExpiry: "",
+      inspectionExpiry: "",
       lastServiceKm: 0,
       currentOdometer: 0,
       branch: "",
@@ -244,6 +270,7 @@ export default function InstructorsPage() {
     setVehicleForm({
       plate: vehicle.plate,
       insuranceExpiry: vehicle.insuranceExpiry,
+      inspectionExpiry: vehicle.inspectionExpiry,
       lastServiceKm: vehicle.lastServiceKm,
       currentOdometer: vehicle.currentOdometer,
       nextServiceKm: vehicle.nextServiceKm,
@@ -258,11 +285,12 @@ export default function InstructorsPage() {
     if (
       !vehicleForm.plate ||
       !vehicleForm.insuranceExpiry ||
+      !vehicleForm.inspectionExpiry ||
       vehicleForm.lastServiceKm === undefined ||
       vehicleForm.currentOdometer === undefined ||
       !vehicleForm.branch
     ) {
-      setError("Please fill all required fields.");
+      setError("Please fill all required fields (including Inspection Expiry).");
       return;
     }
 
@@ -278,6 +306,7 @@ export default function InstructorsPage() {
     const vehicleData: Omit<Vehicle, "id"> = {
       plate,
       insuranceExpiry: vehicleForm.insuranceExpiry,
+      inspectionExpiry: vehicleForm.inspectionExpiry,
       lastServiceKm: lastService,
       currentOdometer: currentKm,
       nextServiceKm: nextService,
@@ -316,10 +345,19 @@ export default function InstructorsPage() {
     }
   };
 
-  // ----- FIXED: Save report to Firestore (nested arrays converted to objects) -----
+  // Helper to get expiry status with text and class
+  const getExpiryStatus = (expiryDate: string) => {
+    const days = getExpiryDays(expiryDate);
+    if (days <= 0) return { text: "🔴 EXPIRED", class: "bg-red-200" };
+    if (days <= 7) return { text: "🟡 Expires soon", class: "bg-yellow-200" };
+    return { text: "🟢 Valid", class: "bg-green-100" };
+  };
+
+  const isServiceDue = (vehicle: Vehicle) => vehicle.currentOdometer >= vehicle.nextServiceKm;
+
+  // ----- Save report to Firestore -----
   const saveReportToFirestore = async (headers: string[], rows: any[][], startDate: string, endDate: string, type: string) => {
     try {
-      // Convert array of arrays → array of objects (Firestore-safe)
       const rowsAsObjects = rows.map(row => {
         const obj: Record<string, any> = {};
         headers.forEach((header, idx) => {
@@ -327,7 +365,6 @@ export default function InstructorsPage() {
         });
         return obj;
       });
-
       await setDoc(doc(collection(db, "fleetReports")), {
         headers,
         data: rowsAsObjects,
@@ -342,13 +379,15 @@ export default function InstructorsPage() {
     }
   };
 
-  // EXPORT TO XLSX (unchanged except function name)
+  // EXPORT TO XLSX
   const exportToXLSX = () => {
     const dataToExport = filteredVehicles.length ? filteredVehicles : vehicles;
     const headers = [
       "Plate",
       "Insurance Expiry",
-      "Days Until Expiry",
+      "Days Until Insurance Expiry",
+      "Inspection Expiry",
+      "Days Until Inspection Expiry",
       "Last Service (km)",
       "Current Odometer",
       "Next Service (km)",
@@ -357,14 +396,15 @@ export default function InstructorsPage() {
       "Assigned Instructor",
     ];
     const rows = dataToExport.map((v) => {
-      const daysUntilExpiry = Math.ceil(
-        (new Date(v.insuranceExpiry).getTime() - new Date().getTime()) / (1000 * 3600 * 24)
-      );
+      const daysIns = getExpiryDays(v.insuranceExpiry);
+      const daysInsp = getExpiryDays(v.inspectionExpiry);
       const serviceDue = v.currentOdometer >= v.nextServiceKm;
       return [
         v.plate,
         v.insuranceExpiry,
-        daysUntilExpiry,
+        daysIns,
+        v.inspectionExpiry,
+        daysInsp,
         v.lastServiceKm,
         v.currentOdometer,
         v.nextServiceKm,
@@ -375,7 +415,7 @@ export default function InstructorsPage() {
     });
     saveReportToFirestore(headers, rows, startDate, endDate, "XLSX");
 
-    let html = `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+    let html = `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</td></thead><tbody>`;
     rows.forEach(row => {
       html += `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
     });
@@ -389,13 +429,15 @@ export default function InstructorsPage() {
     URL.revokeObjectURL(url);
   };
 
-  // PRINT (unchanged)
+  // PRINT
   const handlePrint = () => {
     const dataToPrint = filteredVehicles.length ? filteredVehicles : vehicles;
     const headers = [
       "Plate",
       "Insurance Expiry",
-      "Days Left",
+      "Days Left (Insurance)",
+      "Inspection Expiry",
+      "Days Left (Inspection)",
       "Last Service (km)",
       "Current Odometer",
       "Next Service (km)",
@@ -404,14 +446,15 @@ export default function InstructorsPage() {
       "Instructor",
     ];
     const rows = dataToPrint.map((v) => {
-      const daysUntilExpiry = Math.ceil(
-        (new Date(v.insuranceExpiry).getTime() - new Date().getTime()) / (1000 * 3600 * 24)
-      );
+      const daysIns = getExpiryDays(v.insuranceExpiry);
+      const daysInsp = getExpiryDays(v.inspectionExpiry);
       const serviceDue = v.currentOdometer >= v.nextServiceKm;
       return [
         v.plate,
         new Date(v.insuranceExpiry).toLocaleDateString(),
-        daysUntilExpiry,
+        daysIns,
+        new Date(v.inspectionExpiry).toLocaleDateString(),
+        daysInsp,
         v.lastServiceKm,
         v.currentOdometer,
         v.nextServiceKm,
@@ -472,20 +515,11 @@ export default function InstructorsPage() {
     printWindow.document.close();
   };
 
-  const getInsuranceRowClass = (expiryDate: string) => {
-    const days = Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-    if (days <= 0) return "bg-red-200";
-    if (days <= 7) return "bg-yellow-200";
-    return "bg-green-100";
-  };
-
-  const isServiceDue = (vehicle: Vehicle) => vehicle.currentOdometer >= vehicle.nextServiceKm;
-
   // ---------- RENDER ----------
   if (!isAuthenticated) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-100">
-        <div className="bg-white p-6 rounded shadow-md w-96">
+      <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
+        <div className="bg-white p-6 rounded shadow-md w-full max-w-md">
           <img src="/logopds.jpg" alt="Logo" className="mx-auto mb-4 w-20" />
           <h2 className="text-xl text-black font-bold mb-4 text-center">Instructor & Fleet Admin</h2>
           <form onSubmit={handlePasswordSubmit}>
@@ -510,34 +544,34 @@ export default function InstructorsPage() {
   if (loadingInstructors || loadingVehicles) return <div className="p-4">Loading data...</div>;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto bg-gray-300 min-h-screen">
-      <h1 className="text-3xl font-bold mb-6 text-center text-amber-800">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto bg-gray-300 min-h-screen">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-center text-amber-800">
         Instructor & Fleet Management
       </h1>
       {error && <div className="bg-red-100 text-red-700 p-2 rounded mb-4">{error}</div>}
 
       {/* INSTRUCTORS SECTION */}
       <div className="bg-gray-400 p-4 rounded shadow mb-8">
-        <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-          <h2 className="text-2xl font-semibold text-blue-800">👨‍🏫 Instructors</h2>
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-4 mb-4">
+          <h2 className="text-xl sm:text-2xl font-semibold text-blue-800">👨‍🏫 Instructors</h2>
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               placeholder="Full Name"
               value={newInstructorName}
               onChange={(e) => setNewInstructorName(e.target.value)}
-              className="p-2 border bg-amber-300 rounded text-black w-48"
+              className="p-2 border bg-amber-300 rounded text-black w-full sm:w-48"
             />
             <input
               type="text"
               placeholder="Code (e.g., 001)"
               value={newInstructorCode}
               onChange={(e) => setNewInstructorCode(e.target.value)}
-              className="p-2 border bg-amber-400 rounded text-black w-32"
+              className="p-2 border bg-amber-400 rounded text-black w-full sm:w-32"
             />
             <button
               onClick={addInstructor}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full sm:w-auto"
             >
               Add Instructor
             </button>
@@ -545,7 +579,7 @@ export default function InstructorsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-gray-900 border">
+          <table className="min-w-full bg-gray-900 border text-sm sm:text-base">
             <thead>
               <tr className="bg-red-300">
                 <th className="border p-2 text-left">Name</th>
@@ -581,7 +615,7 @@ export default function InstructorsPage() {
                       </div>
                     )}
                   </td>
-                  <td className="border p-2 space-x-1">
+                  <td className="border p-2 space-x-1 whitespace-nowrap">
                     <button
                       onClick={() => openCarModal(inst)}
                       className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
@@ -611,9 +645,9 @@ export default function InstructorsPage() {
 
       {/* FLEET MANAGEMENT SECTION */}
       <div className="bg-green-400 p-4 rounded shadow">
-        <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-          <h2 className="text-2xl font-semibold text-green-800">🚗 Fleet Management</h2>
-          <div className="space-x-2">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <h2 className="text-xl sm:text-2xl font-semibold text-green-800">🚗 Fleet Management</h2>
+          <div className="flex flex-wrap gap-2">
             <button onClick={exportToXLSX} className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
               📎 Export XLSX
             </button>
@@ -644,11 +678,12 @@ export default function InstructorsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-gray-900 border">
+          <table className="min-w-full bg-gray-900 border text-sm sm:text-base">
             <thead>
               <tr className="bg-indigo-950">
                 <th className="border p-2 text-left">Plate</th>
                 <th className="border p-2 text-left">Insurance Expiry</th>
+                <th className="border p-2 text-left">Inspection Expiry</th>
                 <th className="border p-2 text-left">Service (km)</th>
                 <th className="border p-2 text-left">Current Odometer</th>
                 <th className="border p-2 text-left">Branch</th>
@@ -657,41 +692,43 @@ export default function InstructorsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredVehicles.map((v) => (
-                <tr key={v.id} className={`${getInsuranceRowClass(v.insuranceExpiry)} ${isServiceDue(v) ? "bg-red-200" : ""}`}>
-                  <td className="border p-2 font-mono bg-amber-700">{v.plate}</td>
-                  <td className="border p-2 bg-black">
-                    {new Date(v.insuranceExpiry).toLocaleDateString()}
-                    <span className="block text-xs font-medium">
-                      {(() => {
-                        const days = Math.ceil((new Date(v.insuranceExpiry).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-                        if (days <= 0) return "🔴 EXPIRED";
-                        if (days <= 7) return "🟡 Expires soon";
-                        return "🟢 Valid";
-                      })()}
-                    </span>
-                  </td>
-                  <td className="border p-2 bg-green-950">
-                    Last: {v.lastServiceKm} km<br />
-                    Next: {v.nextServiceKm} km
-                    {isServiceDue(v) && <span className="block text-red-700 font-bold">🔧 Service due!</span>}
-                  </td>
-                  <td className="border p-2 bg-gray-600">{v.currentOdometer} km</td>
-                  <td className="border p-2 bg-amber-500">{v.branch}</td>
-                  <td className="border p-2 bg-blue-500">{v.assignedInstructorName || "—"}</td>
-                  <td className="border p-2 space-x-1">
-                    <button onClick={() => openEditVehicleModal(v)} className="bg-yellow-500 text-white px-2 py-0.5 rounded text-xs">
-                      Edit
-                    </button>
-                    <button onClick={() => deleteVehicle(v.id)} className="bg-red-600 text-white px-2 py-0.5 rounded text-xs">
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filteredVehicles.map((v) => {
+                const insStatus = getExpiryStatus(v.insuranceExpiry);
+                const inspStatus = getExpiryStatus(v.inspectionExpiry);
+                const rowClass = insStatus.class;
+                return (
+                  <tr key={v.id} className={`${rowClass} ${isServiceDue(v) ? "bg-red-200" : ""}`}>
+                    <td className="border p-2 font-mono bg-amber-700">{v.plate}</td>
+                    <td className="border p-2 bg-black">
+                      {new Date(v.insuranceExpiry).toLocaleDateString()}
+                      <span className="block text-xs font-medium">{insStatus.text}</span>
+                    </td>
+                    <td className="border p-2 bg-black">
+                      {new Date(v.inspectionExpiry).toLocaleDateString()}
+                      <span className="block text-xs font-medium">{inspStatus.text}</span>
+                    </td>
+                    <td className="border p-2 bg-green-950">
+                      Last: {v.lastServiceKm} km<br />
+                      Next: {v.nextServiceKm} km
+                      {isServiceDue(v) && <span className="block text-red-700 font-bold">🔧 Service due!</span>}
+                    </td>
+                    <td className="border p-2 bg-gray-600">{v.currentOdometer} km</td>
+                    <td className="border p-2 bg-amber-500">{v.branch}</td>
+                    <td className="border p-2 bg-blue-500">{v.assignedInstructorName || "—"}</td>
+                    <td className="border p-2 whitespace-nowrap">
+                      <button onClick={() => openEditVehicleModal(v)} className="bg-yellow-500 text-white px-2 py-0.5 rounded text-xs mr-1">
+                        Edit
+                      </button>
+                      <button onClick={() => deleteVehicle(v.id)} className="bg-red-600 text-white px-2 py-0.5 rounded text-xs">
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
               {filteredVehicles.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center p-4 text-gray-500">
+                  <td colSpan={8} className="text-center p-4 text-gray-500">
                     No vehicles match the selected date range.
                   </td>
                 </tr>
@@ -703,7 +740,7 @@ export default function InstructorsPage() {
 
       {/* Modal for adding car number to instructor */}
       {showCarModal && selectedInstructor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-xl font-bold mb-4">
               Add Car Number to {selectedInstructor.name}
@@ -730,7 +767,7 @@ export default function InstructorsPage() {
 
       {/* Modal for Add/Edit Vehicle */}
       {showVehicleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4">
               {editingVehicle ? "Edit Vehicle" : "Add New Vehicle"}
@@ -749,6 +786,13 @@ export default function InstructorsPage() {
                 placeholder="Insurance Expiry Date"
                 value={vehicleForm.insuranceExpiry || ""}
                 onChange={(e) => setVehicleForm({ ...vehicleForm, insuranceExpiry: e.target.value })}
+                className="w-full p-2 border rounded text-black"
+              />
+              <input
+                type="date"
+                placeholder="Inspection Expiry Date"
+                value={vehicleForm.inspectionExpiry || ""}
+                onChange={(e) => setVehicleForm({ ...vehicleForm, inspectionExpiry: e.target.value })}
                 className="w-full p-2 border rounded text-black"
               />
               <input
